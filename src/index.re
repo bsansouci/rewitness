@@ -2,7 +2,6 @@
  * vim: set ft=rust:
  * vim: set ft=reason:
  */
-
 type tileType = {bottom: bool, left: bool, top: bool, right: bool};
 
 type pointType = {x: float, y: float};
@@ -139,13 +138,14 @@ let drawPuzzle puzzle => {
 
 let didClickOnStart puzzle::puzzle mouseState::{mouseX, mouseY, mouseDown} => {
   let puzzleSize = float_of_int @@ List.length puzzle.grid;
-  let centerPoint p => ((p +. gridSize /. 2.) -. (puzzleSize *. 3. *. lineWeightf) /. 2.) /. (gridSize /. 2.) -. 1.;
-  if (mouseDown) {
+  let centerPoint p =>
+    ((p +. gridSize /. 2.) -. (puzzleSize *. 3. *. lineWeightf) /. 2.) /. (gridSize /. 2.) -. 1.;
+  if mouseDown {
     let {x: startX, y: startY} = puzzle.startTile;
-    let dx = (centerPoint (startX *. 3. *. lineWeightf +. lineWeightf *. 1.5)) -. mouseX;
-    let dy = (centerPoint (startY *. 3. *. lineWeightf +. lineWeightf *. 1.5)) -. mouseY;
-    let distance = sqrt(dx*.dx +. dy*.dy);
-    distance <= ((float_of_int lineWeight) /. (gridSize /. 2.))
+    let dx = centerPoint (startX *. 3. *. lineWeightf +. lineWeightf *. 1.5) -. mouseX;
+    let dy = centerPoint (startY *. 3. *. lineWeightf +. lineWeightf *. 1.5) -. mouseY;
+    let distance = sqrt (dx *. dx +. dy *. dy);
+    distance <= float_of_int lineWeight /. (gridSize /. 2.)
   } else {
     false
   }
@@ -171,26 +171,30 @@ let () = {
   ignore @@ Glut.createWindow title::"A Reason To Witness";
   let mouseState = {mouseX: 0., mouseY: 0., mouseDown: false};
   let gameState = {currentPath: [], started: false};
-  Glut.mouseFunc (fun button::button state::state x::x y::y => {
-    mouseState.mouseX = (float_of_int x) /. (float_of_int windowSize) *. 2. -. 1.;
-    mouseState.mouseY = (float_of_int (windowSize - y)) /. (float_of_int windowSize) *. 2. -. 1.;
-    switch button {
-    | Glut.LEFT_BUTTON => {
-      /* TODO(sansouci): revisit this stuff */
-      if (mouseState.mouseDown && gameState.started) {
-        gameState.started = false;
-      } else {
-        gameState.started = didClickOnStart puzzle::puzzle mouseState::mouseState;
-      };
-      mouseState.mouseDown = state == Glut.DOWN;
+  Glut.mouseFunc (
+    fun button::button state::state x::x y::y => {
+      mouseState.mouseX = (float_of_int x /. float_of_int windowSize) *. 2. -. 1.;
+      mouseState.mouseY = (float_of_int (windowSize - y) /. float_of_int windowSize) *. 2. -. 1.;
+      switch button {
+      | Glut.LEFT_BUTTON =>
+        /* TODO(sansouci): revisit this stuff */
+        if (mouseState.mouseDown && gameState.started) {
+          gameState.started = false
+        } else {
+          gameState.started = didClickOnStart puzzle::puzzle mouseState::mouseState
+        };
+        mouseState.mouseDown = state == Glut.DOWN
+      | _ => ()
+      }
     }
-    | _ => ()
-    }
-  });
-  Glut.passiveMotionFunc cb::(fun x::x y::y => {
-    mouseState.mouseX = (float_of_int x) /. (float_of_int windowSize) *. 2. -. 1.;
-    mouseState.mouseY = (float_of_int (windowSize - y)) /. (float_of_int windowSize) *. 2. -. 1.;
-  });
+  );
+  Glut.passiveMotionFunc
+    cb::(
+      fun x::x y::y => {
+        mouseState.mouseX = (float_of_int x /. float_of_int windowSize) *. 2. -. 1.;
+        mouseState.mouseY = (float_of_int (windowSize - y) /. float_of_int windowSize) *. 2. -. 1.
+      }
+    );
   let render () => {
     GlClear.clear [`color];
     GlMat.load_identity ();
@@ -200,9 +204,9 @@ let () = {
       color::Color.yellow
       position::{x: 0., y: 0.};
     ignore @@ drawPuzzle puzzle;
-    if (gameState.started) {
+    if gameState.started {
       let puzzleSize = float_of_int @@ List.length puzzle.grid;
-      let centerPoint p => ((p +. gridSize /. 2.) -. (puzzleSize *. 3. *. lineWeightf) /. 2.);
+      let centerPoint p => (p +. gridSize /. 2.) -. (puzzleSize *. 3. *. lineWeightf) /. 2.;
       let {x: startX, y: startY} = puzzle.startTile;
       drawCircle
         radius::lineWeight
@@ -212,7 +216,7 @@ let () = {
           y: centerPoint (startY *. 3. *. lineWeightf +. lineWeightf *. 1.5)
         }
     };
-    Glut.swapBuffers ();
+    Glut.swapBuffers ()
   };
   GlMat.mode `modelview;
   Glut.displayFunc cb::render;
