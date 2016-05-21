@@ -1,3 +1,8 @@
+/*
+ * vim: set ft=rust:
+ * vim: set ft=reason:
+ */
+
 type tileType = {bottom: bool, left: bool, top: bool, right: bool};
 
 type pointType = {x: float, y: float};
