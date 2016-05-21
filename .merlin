@@ -1,0 +1,3 @@
+PKG lablgl glut
+B _build/src
+S src
