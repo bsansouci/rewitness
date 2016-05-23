@@ -56,7 +56,7 @@ let windowSize = 800;
 
 let windowSizef = float_of_int windowSize;
 
-let toWorldCoordinate (WCoord {x, y}) => (
+let toWorldCoord (WCoord {x, y}) => (
   x /. (windowSizef /. 2.) -. 1.,
   y /. (windowSizef /. 2.) -. 1.
 );
@@ -68,8 +68,7 @@ let drawRect width::width height::height color::color position::(GCoord {x, y}) 
   let topLeft = WCoord {x: float_of_int x, y: float_of_int @@ y + height};
   let topRight = WCoord {x: float_of_int @@ x + width, y: float_of_int @@ y + height};
   let bottomRight = WCoord {x: float_of_int @@ x + width, y: float_of_int y};
-  List.iter
-    GlDraw.vertex2 (List.map toWorldCoordinate [bottomLeft, topLeft, topRight, bottomRight]);
+  List.iter GlDraw.vertex2 (List.map toWorldCoord [bottomLeft, topLeft, topRight, bottomRight]);
   GlDraw.ends ()
 };
 
@@ -81,7 +80,7 @@ let drawCircle radius::radius color::color position::(GCoord {x, y}) => {
   for i in 0 to 360 {
     let degInGrad = float_of_int i *. deg2grad;
     GlDraw.vertex2 @@
-      toWorldCoordinate (
+      toWorldCoord (
         WCoord {
           x: cos degInGrad *. floatRadius +. float_of_int x,
           y: sin degInGrad *. floatRadius +. float_of_int y
@@ -91,7 +90,7 @@ let drawCircle radius::radius color::color position::(GCoord {x, y}) => {
   GlDraw.ends ()
 };
 
-let centerPoint puzzleSize (GCoord {x, y}) =>
+let centerPoint puzzleSize::puzzleSize position::(GCoord {x, y}) =>
   GCoord {
     x: (x + windowSize / 2) - (puzzleSize * 3 * lineWeight) / 2,
     y: (y + windowSize / 2) - (puzzleSize * 3 * lineWeight) / 2
@@ -102,7 +101,7 @@ let toGameCoord (PCoord {x, y}) => GCoord {x: x * 3 * lineWeight, y: y * 3 * lin
 let getCircleCenter (GCoord {x, y}) =>
   GCoord {x: x + (3 * lineWeight) / 2, y: y + (3 * lineWeight) / 2};
 
-let drawCell (GCoord {x, y}) {bottom, left, top, right} color => {
+let drawCell tile::{bottom, left, top, right} color::color position::(GCoord {x, y}) => {
   if bottom {
     drawRect
       width::lineWeight
@@ -133,7 +132,7 @@ let drawCell (GCoord {x, y}) {bottom, left, top, right} color => {
   }
 };
 
-let drawPuzzle puzzle => {
+let drawPuzzle puzzle::puzzle => {
   let puzzleSize = List.length puzzle.grid;
   ignore @@
     List.mapi
@@ -141,8 +140,13 @@ let drawPuzzle puzzle => {
         fun y row =>
           List.mapi
             (
-              fun x cell =>
-                drawCell (centerPoint puzzleSize (toGameCoord (PCoord {x, y}))) cell Color.brown
+              fun x tile =>
+                drawCell
+                  tile::tile
+                  color::Color.brown
+                  position::(
+                    centerPoint puzzleSize::puzzleSize position::(toGameCoord (PCoord {x, y}))
+                  )
             )
             row
       )
@@ -150,10 +154,12 @@ let drawPuzzle puzzle => {
   drawCircle
     radius::lineWeight
     color::Color.brown
-    position::(getCircleCenter (centerPoint puzzleSize (toGameCoord puzzle.startTile)))
+    position::(
+      getCircleCenter (centerPoint puzzleSize::puzzleSize position::(toGameCoord puzzle.startTile))
+    )
 };
 
-let toTile puzzle (GCoord {x, y}) => {
+let maybeToTilePoint puzzle::puzzle position::(GCoord {x, y}) => {
   let puzzleSize = List.length puzzle.grid;
   let uncenteredPoint = {
     x: (x + (puzzleSize * 3 * lineWeight) / 2) - windowSize / 2,
@@ -178,7 +184,9 @@ let toTile puzzle (GCoord {x, y}) => {
 
 let getTileSide puzzle::puzzle tile::tile position::(GCoord {x: px, y: py}) => {
   let puzzleSize = List.length puzzle.grid;
-  let GCoord {x: tx, y: ty} = getCircleCenter (centerPoint puzzleSize (toGameCoord tile.position));
+  let GCoord {x: tx, y: ty} = getCircleCenter (
+    centerPoint puzzleSize::puzzleSize position::(toGameCoord tile.position)
+  );
   if (py < ty) {
     Bottom
   } else if (px < tx) {
@@ -222,36 +230,36 @@ let getOptimalLineEdge
     let potentialLineEdge = GCoord {x: lex, y: ley - 1};
     let potentialDistance = getDistance potentialLineEdge mousePos;
     if (potentialDistance < !min) {
-      min.contents = potentialDistance;
-      minCoord.contents = potentialLineEdge
+      min := potentialDistance;
+      minCoord := potentialLineEdge
     }
   };
   if possibleDirs.left {
     let potentialLineEdge = GCoord {x: lex - 1, y: ley};
     let potentialDistance = getDistance potentialLineEdge mousePos;
     if (potentialDistance < !min) {
-      min.contents = potentialDistance;
-      minCoord.contents = potentialLineEdge
+      min := potentialDistance;
+      minCoord := potentialLineEdge
     }
   };
   if possibleDirs.top {
     let potentialLineEdge = GCoord {x: lex, y: ley + 1};
     let potentialDistance = getDistance potentialLineEdge mousePos;
     if (potentialDistance < !min) {
-      min.contents = potentialDistance;
-      minCoord.contents = potentialLineEdge
+      min := potentialDistance;
+      minCoord := potentialLineEdge
     }
   };
   if possibleDirs.right {
     let potentialLineEdge = GCoord {x: lex + 1, y: ley};
     let potentialDistance = getDistance potentialLineEdge mousePos;
     if (potentialDistance < !min) {
-      min.contents = potentialDistance;
-      minCoord.contents = potentialLineEdge
+      min := potentialDistance;
+      minCoord := potentialLineEdge
     }
   };
-  let nextTile = toTile puzzle !minCoord;
-  let lineEdgeTile = toTile puzzle lineEdge;
+  let nextTile = maybeToTilePoint puzzle::puzzle position::!minCoord;
+  let lineEdgeTile = maybeToTilePoint puzzle::puzzle position::lineEdge;
   let getNextPath currentPath tile nextTile =>
     switch currentPath {
     | [] => [tile]
@@ -301,7 +309,9 @@ let getOptimalLineEdge
 
 let didClickOnStartTile puzzle::puzzle mousePos::mousePos => {
   let puzzleSize = List.length puzzle.grid;
-  let circleCenter = getCircleCenter (centerPoint puzzleSize (toGameCoord puzzle.startTile));
+  let circleCenter = getCircleCenter (
+    centerPoint puzzleSize::puzzleSize position::(toGameCoord puzzle.startTile)
+  );
   let distance = getDistance circleCenter mousePos;
   distance <= lineWeightf
 };
@@ -315,7 +325,11 @@ let mouseDidClick puzzle::puzzle gameState::gameState button::button state::stat
       switch gameState.lineEdge {
       | None when didClickOnStartTile puzzle::puzzle mousePos::mousePos =>
         gameState.lineEdge =
-          Some (getCircleCenter (centerPoint puzzleSize (toGameCoord puzzle.startTile)))
+          Some (
+            getCircleCenter (
+              centerPoint puzzleSize::puzzleSize position::(toGameCoord puzzle.startTile)
+            )
+          )
       | Some _ =>
         gameState.lineEdge = None;
         gameState.currentPath = []
@@ -332,7 +346,7 @@ let mouseDidMove puzzle::puzzle gameState::gameState x::x y::y => {
     switch gameState.lineEdge {
     | None => ()
     | Some lineEdge =>
-      switch (toTile puzzle lineEdge) {
+      switch (maybeToTilePoint puzzle::puzzle position::lineEdge) {
       | None => assert false
       | Some tilePoint =>
         let nextGameState =
@@ -370,14 +384,14 @@ let mouseDidMove puzzle::puzzle gameState::gameState x::x y::y => {
         }
       }
     };
-  loop 100
+  loop 1000
 };
 
 let render puzzle::puzzle gameState::gameState () => {
   GlClear.clear [`color];
   GlMat.load_identity ();
   drawRect width::windowSize height::windowSize color::Color.yellow position::(GCoord {x: 0, y: 0});
-  ignore @@ drawPuzzle puzzle;
+  drawPuzzle puzzle::puzzle;
   switch gameState.lineEdge {
   | None => ()
   | Some lineEdge =>
@@ -385,18 +399,24 @@ let render puzzle::puzzle gameState::gameState () => {
     drawCircle
       radius::lineWeight
       color::Color.brightYellow
-      position::(getCircleCenter (centerPoint puzzleSize (toGameCoord puzzle.startTile)));
+      position::(
+        getCircleCenter (
+          centerPoint puzzleSize::puzzleSize position::(toGameCoord puzzle.startTile)
+        )
+      );
     ignore @@
       List.map
         (
           fun tilePoint =>
             drawCell
-              (centerPoint puzzleSize (toGameCoord tilePoint.position))
-              tilePoint.tile
-              Color.brightYellow
+              tile::tilePoint.tile
+              color::Color.brightYellow
+              position::(
+                centerPoint puzzleSize::puzzleSize position::(toGameCoord tilePoint.position)
+              )
         )
         gameState.currentPath;
-    /* drawCircle radius::(lineWeight / 3) color::Color.red position::lineEdge; */
+    drawCircle radius::(lineWeight / 3) color::Color.red position::lineEdge
   };
   Glut.swapBuffers ()
 };
