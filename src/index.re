@@ -252,13 +252,12 @@ let getOptimalLineEdge
   };
   let nextTile = toTile puzzle !minCoord;
   let lineEdgeTile = toTile puzzle lineEdge;
-  let getNextPath currentPath tile nextTile => {
+  let getNextPath currentPath tile nextTile =>
     switch currentPath {
-      | [] => [tile]
-      | [head, ...tail] when head == nextTile => tail
-      | l => [tile, ...l]
-    }
-  };
+    | [] => [tile]
+    | [head, ...tail] when head == nextTile => tail
+    | l => [tile, ...l]
+    };
   switch nextTile {
   | None => gameState
   | Some t =>
