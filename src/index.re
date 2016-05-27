@@ -114,7 +114,7 @@ let drawCell tile::{bottom, left, top, right} color::color position::(GCoord {x,
       height::(2 * lineWeight - lineWeight / 2)
       color::color
       position::(GCoord {x: x + lineWeight, y});
-    numOfSides := !numOfSides + 1;
+    numOfSides := !numOfSides + 1
   };
   if left {
     drawRect
@@ -122,7 +122,7 @@ let drawCell tile::{bottom, left, top, right} color::color position::(GCoord {x,
       height::lineWeight
       color::color
       position::(GCoord {x, y: y + lineWeight});
-    numOfSides := !numOfSides + 1;
+    numOfSides := !numOfSides + 1
   };
   if top {
     drawRect
@@ -130,7 +130,7 @@ let drawCell tile::{bottom, left, top, right} color::color position::(GCoord {x,
       height::(2 * lineWeight - lineWeight / 2)
       color::color
       position::(GCoord {x: x + lineWeight, y: y + lineWeight + lineWeight / 2});
-    numOfSides := !numOfSides + 1;
+    numOfSides := !numOfSides + 1
   };
   if right {
     drawRect
@@ -138,10 +138,17 @@ let drawCell tile::{bottom, left, top, right} color::color position::(GCoord {x,
       height::lineWeight
       color::color
       position::(GCoord {x: x + lineWeight + lineWeight / 2, y: y + lineWeight});
-    numOfSides := !numOfSides + 1;
+    numOfSides := !numOfSides + 1
   };
   if (!numOfSides >= 2) {
     drawCircle radius::(lineWeight / 2) color::color position::(getTileCenter (GCoord {x, y}))
+  } else {
+    let GCoord tileCenter = getTileCenter (GCoord {x, y});
+    drawRect
+      width::lineWeight
+      height::lineWeight
+      color::color
+      position::(GCoord {x: tileCenter.x - lineWeight / 2, y: tileCenter.y - lineWeight / 2})
   }
 };
 
@@ -682,7 +689,7 @@ let examplePuzzle = {
     [B.t, B.bt, B.btr, B.lr, B.lt, B.b, B.bt],
     [B.r, B.blt, B.tr, B.blr, B.blr, B.blt, B.t],
     [B.b, B.t, B.b, B.tr, B.lt, B.tr, B.bl],
-    [B.tr, B.lr, B.ltr, B.lr, B.lr, B.lr, B.lt],
+    [B.tr, B.lr, B.ltr, B.lr, B.lr, B.lr, B.lt]
   ]
 };
 
