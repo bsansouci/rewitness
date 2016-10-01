@@ -10,11 +10,11 @@ type floatPointType = {x: float, y: float};
 
 type intPointType = {x: int, y: int};
 
-type wCoordType = | WCoord of floatPointType;
+type wCoordType = | WCoord floatPointType;
 
-type gCoordType = | GCoord of intPointType;
+type gCoordType = | GCoord intPointType;
 
-type pCoordType = | PCoord of intPointType;
+type pCoordType = | PCoord intPointType;
 
 type tileSidePointType = {position: pCoordType, tileSide: tileSideType};
 
