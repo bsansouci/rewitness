@@ -1,3 +1,5 @@
 _build
+.jenga
+node_modules
 *.native
 *.byte

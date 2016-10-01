@@ -1,0 +1,18 @@
+{
+  "name": "ReWitness",
+  "version": "0.1.0",
+  "description": "Mini game copying the puzzles from The Witness",
+  "scripts": {
+    "build": "eval $(dependencyEnv) && nopam && rebuild -pkg lablgl.glut src/index.native"
+  },
+  "dependencies": {
+    "nopam": "https://github.com/yunxing/nopam.git",
+    "dependency-env": "https://github.com/npm-ml/dependency-env.git",
+    "@opam-alpha/lablgl": "*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bsansouci/ocaml-re.git"
+  },
+  "author": "bsansouci & schmavery"
+}
