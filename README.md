@@ -1,7 +1,9 @@
 ReWitness
 ---
 
-To build, run `rebuild -pkg lablgl.glut src/index.native`.
+You will need opam installed and have the package `lablgl`.
+
+To build, run `npm run build`.
 
 To run, run `./index.native`.
 
