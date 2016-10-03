@@ -6,6 +6,7 @@
     "build": "eval $(dependencyEnv) && nopam && rebuild -pkg lablgl.glut src/index.native"
   },
   "dependencies": {
+    "reason": "https://github.com/facebook/reason.git",
     "nopam": "https://github.com/yunxing/nopam.git",
     "dependency-env": "https://github.com/npm-ml/dependency-env.git",
     "@opam-alpha/lablgl": "*"
