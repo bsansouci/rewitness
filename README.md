@@ -1,9 +1,7 @@
 ReWitness
 ---
 
-You will need opam installed and have the package `lablgl`.
-
-To build, run `npm run build`.
+Simply `npm i` and then `npm run build`.
 
 To run, run `./index.native`.
 
@@ -12,4 +10,3 @@ To run, run `./index.native`.
 ReWitness VS The Witness
 
 ![screen shot 2016-05-27 at 1 07 12 am](https://cloud.githubusercontent.com/assets/4534692/15601992/87e3c2e2-23a7-11e6-9c3e-97d1f64fc230.png)
-
