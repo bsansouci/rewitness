@@ -3,17 +3,25 @@
   "version": "0.1.0",
   "description": "Mini game copying the puzzles from The Witness",
   "scripts": {
-    "build": "eval $(dependencyEnv) && nopam && rebuild -pkg lablgl.glut src/index.native"
+    "postinstall": "npm run build",
+    "test": "_build/src/app.out",
+    "start": "_build/src/app.out",
+    "build": "eval $(dependencyEnv) && nopam && rebuild -pkg lablgl.glut src/index.native",
+    "top": "eval $(dependencyEnv) && rtop",
+    "env": "eval $(dependencyEnv) && env",
+    "editor": "eval $(dependencyEnv) && eval $EDITOR",
+    "whereisocamlmerlin": "eval $(dependencyEnv) && which ocamlmerlin-reason"
   },
   "dependencies": {
-    "reason": "https://github.com/facebook/reason.git",
-    "nopam": "https://github.com/yunxing/nopam.git",
+    "@opam-alpha/lablgl": "*",
+    "@opam-alpha/merlin": "^ 2.5.0",
     "dependency-env": "https://github.com/npm-ml/dependency-env.git",
-    "@opam-alpha/lablgl": "*"
+    "nopam": "https://github.com/yunxing/nopam.git",
+    "reason": "https://github.com/facebook/reason.git"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/bsansouci/ocaml-re.git"
+    "url": "git+https://github.com/bsansouci/rewitness.git"
   },
   "author": "bsansouci & schmavery"
 }
