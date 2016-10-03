@@ -24,6 +24,14 @@ npm start
 If you are running as `root` already (you probably aren't) then invoke `npm
 install --unsafe-perm` instead.
 
+## Making your own changes
+
+To make your own changes, edit `src/index.re` and then run:
+
+```
+npm run build && npm start
+```
+
 ## Included Top Level
 
 The top level `rtop` is built in to the sandbox:
