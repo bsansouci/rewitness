@@ -4,8 +4,8 @@
   "description": "Mini game copying the puzzles from The Witness",
   "scripts": {
     "postinstall": "npm run build",
-    "test": "_build/src/app.out",
-    "start": "_build/src/app.out",
+    "test": "_build/src/index.native",
+    "start": "_build/src/index.native",
     "build": "eval $(dependencyEnv) && nopam && rebuild -pkg lablgl.glut src/index.native",
     "top": "eval $(dependencyEnv) && rtop",
     "env": "eval $(dependencyEnv) && env",
