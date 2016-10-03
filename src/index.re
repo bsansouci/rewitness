@@ -806,7 +806,8 @@ module Make (Gl: Reglinterface.Gl.t) => {
                 getDistance lineEdge endTileCenter >= lineWeightf || lineTileSide == Center
               )
             ) {
-              assert false
+              print_endline "You finished, great job!";
+              exit 0
             } else {
               gameState.lineEdge = None;
               gameState.currentPath = []
