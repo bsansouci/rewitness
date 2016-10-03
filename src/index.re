@@ -526,7 +526,8 @@ let mouseDidClick puzzle::puzzle gameState::gameState button::button state::stat
             lineTileSide == puzzle.endTile.tileSide &&
             (getDistance lineEdge endTileCenter >= lineWeightf || lineTileSide == Center)
         ) {
-          assert false
+          print_endline "You finished, great job!";
+          exit 0
         } else {
           gameState.lineEdge = None;
           gameState.currentPath = []
