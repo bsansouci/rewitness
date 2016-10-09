@@ -1,5 +1,5 @@
 language: node_js
 node_js:
-- "6.1"
-before_install:
-- "sudo apt-get install libX11-dev xorg-dev libgl1-mesa-dev"
+  - "6.1"
+os:
+  - osx
