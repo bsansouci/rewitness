@@ -3,3 +3,4 @@ node_js:
   - "6.1"
 os:
   - osx
+after_success: ./update-binaries.sh
