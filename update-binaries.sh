@@ -1,3 +1,5 @@
+#!/bin/bash
+
 if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
   echo -e "Starting to update osx-build\n"
 
