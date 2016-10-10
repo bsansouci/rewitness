@@ -4,4 +4,7 @@ before_install:
   - sudo apt-get update -qq
   - sudo apt-get install -y libsdl2-dev
 node_js:
-  - "5.11"
+  - "6.1"
+os:
+  - osx
+after_success: ./update-binaries.sh
