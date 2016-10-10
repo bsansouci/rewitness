@@ -7,4 +7,6 @@ node_js:
   - "6.1"
 os:
   - osx
+before_install:
+  - chmod +x ./update-binaries.sh
 after_success: ./update-binaries.sh
