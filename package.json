@@ -4,7 +4,7 @@
   "description": "Mini game copying the puzzles from The Witness",
   "scripts": {
     "postinstall": "npm run build",
-    "test": "echo 'No tests yet.  All good :D",
+    "test": "echo 'No tests yet.  All good :D'",
     "start": "_build/default/src/app.out",
     "build": "eval $(dependencyEnv) && nopam && rebel",
     "top": "eval $(dependencyEnv) && rtop",
