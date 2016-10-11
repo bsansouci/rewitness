@@ -4,8 +4,6 @@
 
 ![rewitness-gif mov](https://cloud.githubusercontent.com/assets/4534692/18104017/04c5d1aa-6eae-11e6-8922-53c6a7abf2fe.gif)
 
-_side notes_: There's a [branch that builds](https://github.com/bsansouci/rewitness/tree/rebel) with [rebel](https://github.com/reasonml/rebel).
-
 ## Reason via `npm`
 
 Example project using Reason as an `npm` dependency.
