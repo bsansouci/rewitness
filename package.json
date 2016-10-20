@@ -15,6 +15,7 @@
   "dependencies": {
     "@opam-alpha/lablgl": "*",
     "@opam-alpha/merlin": "^ 2.5.0",
+    "@opam-alpha/ocaml": "4.2.3",    
     "dependency-env": "https://github.com/npm-ml/dependency-env.git",
     "nopam": "https://github.com/yunxing/nopam.git",
     "realpath": "*",
