@@ -2,34 +2,16 @@
  * vim: set ft=rust:
  * vim: set ft=reason:
  */
-let module Mat4 = {
-  type t = array float;
-  external create : unit => t = "mat4.create" [@@bs.val];
-  external perspective : out::t => fovy::int => aspect::float => near::float => far::float => unit = "mat4.perspective" [@@bs.val];
-  external identity : out::t => unit = "mat4.identity" [@@bs.val];
-  external translate : out::t => matrix::t => vector::array float => unit = "mat4.translate" [@@bs.val];
-  external scale : out::t => matrix::t => vector::array float => unit = "mat4.scale" [@@bs.val];
-  external rotate : out::t => a::t => rad::float => array int => unit = "mat4.rotate" [@@bs.val];
-  external ortho : out::t =>
-                   left::int =>
-                   right::int =>
-                   bottom::int =>
-                   top::int =>
-                   near::int =>
-                   far::int =>
-                   unit = "mat4.ortho" [@@bs.val];
-};
-
 module type GlT = {
-  type context;
+  type contextT;
   module type WindowT = {
     type t;
     let getWidth: t => int;
     let getHeight: t => int;
     let init: argv::array string => t;
-    let setWindowSize: t => width::int => height::int => unit;
-    let initDisplayMode: t => double_buffer::bool => unit => unit;
-    let getContext: t => context;
+    let setWindowSize: window::t => width::int => height::int => unit;
+    let initDisplayMode: window::t => double_buffer::bool => unit => unit;
+    let getContext: t => contextT;
   };
   let module Window: WindowT;
   module type EventsT = {
@@ -41,69 +23,110 @@ module type GlT = {
       | DOWN
       | UP;
     let onMouseDown:
-      Window.t => (button::buttonStateT => state::stateT => x::int => y::int => unit) => unit;
-    let onMouseMove: Window.t => (x::int => y::int => unit) => unit;
+      window::Window.t =>
+      (button::buttonStateT => state::stateT => x::int => y::int => unit) =>
+      unit;
+    let onMouseMove: window::Window.t => (x::int => y::int => unit) => unit;
   };
   let module Events: EventsT;
-  let displayFunc: (float => unit) => unit;
-  type program;
-  type shader;
-  /* HACK */
-  type float32arrayOrUint16Array;
-  let clearColor: context => float => float => float => float => unit;
-  let createProgram: context => program;
-  let createShader: context => int => shader;
-  let attachShader: context => program => shader => unit;
-  let shaderSource: context => shader => string => unit;
-  let compileShader: context => shader => unit;
-  let attachShader: context => program => shader::shader => unit;
-  let linkProgram: context => program => unit;
-  let useProgram: context => program => unit;
-  type buffer;
-  type attribute;
-  type uniform;
-  let createBuffer: context => buffer;
-  let bindBuffer: context => int => buffer => unit;
-  let bufferData: context => int => float32arrayOrUint16Array => int => unit;
-  let viewport: context => int => int => int => int => unit;
-  let clear: context => int => unit;
+  let displayFunc: window::Window.t => cb::(float => unit) => unit;
+  type programT;
+  type shaderT;
+  let clearColor: context::contextT => r::float => g::float => b::float => a::float => unit;
+  let createProgram: context::contextT => programT;
+  let createShader: context::contextT => shaderType::int => shaderT;
+  let attachShader: context::contextT => program::programT => shader::shaderT => unit;
+  let shaderSource: context::contextT => shader::shaderT => source::string => unit;
+  let compileShader: context::contextT => shader::shaderT => unit;
+  let linkProgram: context::contextT => program::programT => unit;
+  let useProgram: context::contextT => program::programT => unit;
+  type bufferT;
+  type attributeT;
+  type uniformT;
+  type boolT;
+  let false_: boolT;
+  let true_: boolT;
+  type float32Array;
+  type uint16Array;
+  let createBuffer: context::contextT => bufferT;
+  let bindBuffer: context::contextT => target::int => buffer::bufferT => unit;
+  /* TODO: unhack this */
+  type dataKind =
+    | Float32 float32Array
+    | UInt16 uint16Array;
+  let bufferData: context::contextT => target::int => data::dataKind => usage::int => unit;
+  let viewport: context::contextT => x::int => y::int => width::int => height::int => unit;
+  let clear: context::contextT => mask::int => unit;
   /* TODO: We'll need to do something about this */
-  let createFloat32Array: array float => float32arrayOrUint16Array;
-  let createUint16Array: array int => float32arrayOrUint16Array;
-  let getUniformLocation: context => program => string => uniform;
-  let getAttribLocation: context => program => string => attribute;
-  let enableVertexAttribArray: context => attribute => unit;
-  let vertexAttribPointer: context => attribute => int => int => Js.boolean => int => int => unit;
-  let uniformMatrix4fv: context => uniform => Js.boolean => Mat4.t => unit;
+  let createFloat32Array: array float => float32Array;
+  let createUint16Array: array int => uint16Array;
+  let getUniformLocation: context::contextT => program::programT => name::string => uniformT;
+  let getAttribLocation: context::contextT => program::programT => name::string => attributeT;
+  let enableVertexAttribArray: context::contextT => attribute::attributeT => unit;
+  let vertexAttribPointer:
+    context::contextT =>
+    attribute::attributeT =>
+    size::int =>
+    type_::int =>
+    normalize::boolT =>
+    stride::int =>
+    offset::int =>
+    unit;
+  module type Mat4T = {
+    type t;
+    let to_array: t => array float;
+    let create: unit => t;
+    /* let perspective: out::t => fovy::int => aspect::float => near::float => far::float => unit; */
+    let identity: out::t => unit;
+    let translate: out::t => matrix::t => vec::array float => unit;
+    let scale: out::t => matrix::t => vec::array float => unit;
+    let rotate: out::t => matrix::t => rad::float => vec::array float => unit;
+    let ortho:
+      out::t =>
+      left::float =>
+      right::float =>
+      bottom::float =>
+      top::float =>
+      near::float =>
+      far::float =>
+      unit;
+  };
+  let module Mat4: Mat4T;
+  let uniformMatrix4fv:
+    context::contextT => location::uniformT => transpose::boolT => value::Mat4.t => unit;
+  let getCompileStatus: context::contextT => shader::shaderT => bool;
   /* Can return other value types as well, see https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/Types */
-  let getProgramParameter: context => program => int => Js.boolean;
-  let getShaderParameter: context => shader => int => Js.boolean;
-  let getShaderInfoLog: context => shader => string;
-  let getShaderSource: context => shader => string;
-  let drawArrays: context => int => int => int => unit;
-  let drawElements: context => int => int => int => int => unit;
+  let getProgramParameter: context::contextT => program::programT => paramName::int => int;
+  let getShaderParameter: context::contextT => shader::shaderT => paramName::int => int;
+  let getShaderInfoLog: context::contextT => shader::shaderT => maxLength::int => string;
+  let getShaderSource: context::contextT => shader::shaderT => string;
+  let drawArrays: context::contextT => mode::int => first::int => count::int => unit;
+  let drawElements:
+    context::contextT => mode::int => count::int => type_::int => offset::int => unit;
 };
 
+/* module type GameDepsT = {let module Gl: GlT; let module Mat4: Mat4T;}; */
 let module Make (Gl: GlT) => {
+  /* let module Gl = GameDeps.Gl; */
+  /* let module Mat4 = GameDeps.Mat4; */
   /* Setting up the Gl utils functions */
-  type gl_camera = {projection_matrix: Mat4.t, model_view_matrix: Mat4.t};
-  type gl_env = {camera: gl_camera, window: Gl.Window.t, gl: Gl.context};
+  type gl_camera = {projection_matrix: Gl.Mat4.t, model_view_matrix: Gl.Mat4.t};
+  type gl_env = {camera: gl_camera, window: Gl.Window.t, gl: Gl.contextT};
   let set_projection (window: Gl.Window.t) (camera: gl_camera) =>
-    Mat4.ortho
+    Gl.Mat4.ortho
       out::camera.projection_matrix
-      left::0
-      right::(Gl.Window.getWidth window)
-      bottom::0
-      top::(Gl.Window.getHeight window)
-      near::0
-      far::100;
+      left::0.
+      right::(float_of_int (Gl.Window.getWidth window))
+      bottom::0.
+      top::(float_of_int (Gl.Window.getHeight window))
+      near::0.
+      far::100.;
   let translate_camera (camera: gl_camera) (offset: array float) =>
-    Mat4.translate camera.model_view_matrix camera.model_view_matrix offset;
-  let reset_mv (camera: gl_camera) => Mat4.identity camera.model_view_matrix;
+    Gl.Mat4.translate camera.model_view_matrix camera.model_view_matrix offset;
+  let reset_mv (camera: gl_camera) => Gl.Mat4.identity camera.model_view_matrix;
   let build_gl_env (window: Gl.Window.t) :gl_env => {
     let gl = Gl.Window.getContext window;
-    let matrix: array float = Mat4.create ();
-    let gl_camera = {projection_matrix: matrix, model_view_matrix: Mat4.create ()};
+    let gl_camera = {projection_matrix: Gl.Mat4.create (), model_view_matrix: Gl.Mat4.create ()};
     let env = {camera: gl_camera, window, gl};
     let canvas_width = Gl.Window.getWidth window;
     let canvas_height = Gl.Window.getHeight window;
@@ -112,31 +135,38 @@ let module Make (Gl: GlT) => {
     Gl.clear gl (Constants.color_buffer_bit lor Constants.depth_buffer_bit);
     env
   };
-  let add_program (env: gl_env) vertex_shader_source fragment_shader_source :Gl.program => {
+  let addProgram (env: gl_env) vertex_shader_source fragment_shader_source :option Gl.programT => {
     let vertex_shader = Gl.createShader env.gl Constants.vertex_shader;
     Gl.shaderSource env.gl vertex_shader vertex_shader_source;
     Gl.compileShader env.gl vertex_shader;
-    let fragment_shader = Gl.createShader env.gl Constants.fragment_shader;
-    Gl.shaderSource env.gl fragment_shader fragment_shader_source;
-    Gl.compileShader env.gl fragment_shader;
-    let program = Gl.createProgram env.gl;
-    Gl.attachShader env.gl program vertex_shader;
-    Gl.attachShader env.gl program fragment_shader;
-    Js.log (Gl.getShaderSource env.gl vertex_shader);
-    Js.log (Gl.getShaderSource env.gl fragment_shader);
-    Js.log fragment_shader;
-    Js.log vertex_shader;
-    Gl.linkProgram env.gl program;
-    if (Js.false_ == Gl.getProgramParameter env.gl program Constants.link_status) {
-      Js.log "Failed to initialize shader: ";
-      Js.log (Gl.getShaderInfoLog env.gl vertex_shader);
-      Js.log (Gl.getShaderParameter env.gl vertex_shader Constants.compile_status);
-      Js.log (Gl.getShaderInfoLog env.gl fragment_shader);
-      Js.log (Gl.getShaderParameter env.gl fragment_shader Constants.compile_status)
+    if (Gl.getCompileStatus context::env.gl shader::vertex_shader) {
+      let fragment_shader = Gl.createShader env.gl Constants.fragment_shader;
+      Gl.shaderSource env.gl fragment_shader fragment_shader_source;
+      Gl.compileShader env.gl fragment_shader;
+      if (Gl.getCompileStatus context::env.gl shader::fragment_shader) {
+        let program = Gl.createProgram env.gl;
+        Gl.attachShader context::env.gl program::program shader::vertex_shader;
+        Gl.attachShader context::env.gl program::program shader::fragment_shader;
+        Gl.linkProgram env.gl program;
+        Some program
+      } else {
+        print_endline (Gl.getShaderInfoLog context::env.gl shader::fragment_shader maxLength::0);
+        None
+      }
     } else {
-      Js.log "Shader initialized!"
-    };
-    program
+      print_endline (Gl.getShaderInfoLog context::env.gl shader::vertex_shader maxLength::0);
+      None
+    }
+    /* if (0 == Gl.getProgramParameter env.gl program Constants.link_status) {
+         Js.log "Failed to initialize shader: ";
+         Js.log (Gl.getShaderInfoLog env.gl vertex_shader);
+         Js.log (Gl.getShaderParameter env.gl vertex_shader Constants.compile_status);
+         Js.log (Gl.getShaderInfoLog env.gl fragment_shader);
+         Js.log (Gl.getShaderParameter env.gl fragment_shader Constants.compile_status)
+       } else { */
+    /* Js.log "Shader initialized!"; */
+    /* }; */
+    /* program */
   };
 
   /** Setting up the game's datatypes. **/
@@ -211,6 +241,7 @@ let module Make (Gl: GlT) => {
   };
   let start () => {
     let vertex_shader_source = {|
+       #version 100
        attribute vec3 aVertexPosition;
        attribute vec4 aVertexColor;
 
@@ -224,6 +255,7 @@ let module Make (Gl: GlT) => {
          vColor = aVertexColor;
        }|};
     let fragment_shader_source = {|
+       #version 100
        precision mediump float;
 
        varying vec4 vColor;
@@ -233,9 +265,13 @@ let module Make (Gl: GlT) => {
        }
      |};
     let window = Gl.Window.init argv::Sys.argv;
-    Gl.Window.setWindowSize window width::windowSize height::windowSize;
+    /* Gl.Window.setWindowSize window::window width::windowSize height::windowSize; */
     let env = build_gl_env window;
-    let program = add_program env vertex_shader_source fragment_shader_source;
+    let program =
+      switch (addProgram env vertex_shader_source fragment_shader_source) {
+      | None => assert false
+      | Some program => program
+      };
     Gl.useProgram env.gl program;
     let position_attrib = Gl.getAttribLocation env.gl program "aVertexPosition";
     let color_attrib = Gl.getAttribLocation env.gl program "aVertexColor";
@@ -243,8 +279,16 @@ let module Make (Gl: GlT) => {
     Gl.enableVertexAttribArray env.gl color_attrib;
     let p_matrix_uniform = Gl.getUniformLocation env.gl program "uPMatrix";
     let mv_matrix_uniform = Gl.getUniformLocation env.gl program "uMVMatrix";
-    Gl.uniformMatrix4fv env.gl p_matrix_uniform Js.false_ env.camera.projection_matrix;
-    Gl.uniformMatrix4fv env.gl mv_matrix_uniform Js.false_ env.camera.model_view_matrix;
+    Gl.uniformMatrix4fv
+      context::env.gl
+      location::p_matrix_uniform
+      transpose::Gl.false_
+      value::env.camera.projection_matrix;
+    Gl.uniformMatrix4fv
+      context::env.gl
+      location::mv_matrix_uniform
+      transpose::Gl.false_
+      value::env.camera.model_view_matrix;
     set_projection env.window env.camera;
     let drawRect
         vertex_buffer::vertex_buffer
@@ -268,28 +312,28 @@ let module Make (Gl: GlT) => {
         float_of_int y,
         0.0
       |];
-      Gl.bindBuffer env.gl Constants.array_buffer vertex_buffer;
+      Gl.bindBuffer context::env.gl target::Constants.array_buffer buffer::vertex_buffer;
       Gl.bufferData
-        env.gl
-        Constants.array_buffer
-        (Gl.createFloat32Array square_vertices)
-        Constants.static_draw;
-      Gl.vertexAttribPointer env.gl position_attrib 3 Constants.float_ Js.false_ 0 0;
-      Gl.bindBuffer env.gl Constants.array_buffer color_buffer;
+        context::env.gl
+        target::Constants.array_buffer
+        data::(Gl.Float32 (Gl.createFloat32Array square_vertices))
+        usage::Constants.static_draw;
+      Gl.vertexAttribPointer env.gl position_attrib 3 Constants.float_ Gl.false_ 0 0;
 
       /** Colors **/
       let square_colors = ref [];
       for i in 0 to 3 {
         square_colors := [r, g, b, 1., ...!square_colors]
       };
+      Gl.bindBuffer context::env.gl target::Constants.array_buffer buffer::color_buffer;
       Gl.bufferData
-        env.gl
-        Constants.array_buffer
-        (Gl.createFloat32Array (Array.of_list !square_colors))
-        Constants.static_draw;
-      Gl.vertexAttribPointer env.gl color_attrib 4 Constants.float_ Js.false_ 0 0;
-      Gl.uniformMatrix4fv env.gl p_matrix_uniform Js.false_ env.camera.projection_matrix;
-      Gl.uniformMatrix4fv env.gl mv_matrix_uniform Js.false_ env.camera.model_view_matrix;
+        context::env.gl
+        target::Constants.array_buffer
+        data::(Gl.Float32 (Gl.createFloat32Array (Array.of_list !square_colors)))
+        usage::Constants.static_draw;
+      Gl.vertexAttribPointer env.gl color_attrib 4 Constants.float_ Gl.false_ 0 0;
+      Gl.uniformMatrix4fv env.gl p_matrix_uniform Gl.false_ env.camera.projection_matrix;
+      Gl.uniformMatrix4fv env.gl mv_matrix_uniform Gl.false_ env.camera.model_view_matrix;
       Gl.drawArrays env.gl Constants.triangle_strip 0 4
     };
     let drawCircle
@@ -315,11 +359,11 @@ let module Make (Gl: GlT) => {
       };
       Gl.bindBuffer env.gl Constants.array_buffer vertex_buffer;
       Gl.bufferData
-        env.gl
-        Constants.array_buffer
-        (Gl.createFloat32Array (Array.of_list !circle_vertex))
-        Constants.static_draw;
-      Gl.vertexAttribPointer env.gl position_attrib 3 Constants.float_ Js.false_ 0 0;
+        context::env.gl
+        target::Constants.array_buffer
+        data::(Gl.Float32 (Gl.createFloat32Array (Array.of_list !circle_vertex)))
+        usage::Constants.static_draw;
+      Gl.vertexAttribPointer env.gl position_attrib 3 Constants.float_ Gl.false_ 0 0;
 
       /** Instantiate color array **/
       let circle_colors = ref [];
@@ -328,19 +372,25 @@ let module Make (Gl: GlT) => {
       };
       Gl.bindBuffer env.gl Constants.array_buffer color_buffer;
       Gl.bufferData
-        env.gl
-        Constants.array_buffer
-        (Gl.createFloat32Array (Array.of_list !circle_colors))
-        Constants.static_draw;
-      Gl.vertexAttribPointer env.gl color_attrib 4 Constants.float_ Js.false_ 0 0;
-      Gl.uniformMatrix4fv env.gl p_matrix_uniform Js.false_ env.camera.projection_matrix;
-      Gl.uniformMatrix4fv env.gl mv_matrix_uniform Js.false_ env.camera.model_view_matrix;
-
-      /** Invokes the shaders **/
+        context::env.gl
+        target::Constants.array_buffer
+        data::(Gl.Float32 (Gl.createFloat32Array (Array.of_list !circle_colors)))
+        usage::Constants.static_draw;
+      Gl.vertexAttribPointer env.gl color_attrib 4 Constants.float_ Gl.false_ 0 0;
+      Gl.uniformMatrix4fv env.gl p_matrix_uniform Gl.false_ env.camera.projection_matrix;
+      Gl.uniformMatrix4fv env.gl mv_matrix_uniform Gl.false_ env.camera.model_view_matrix;
       Gl.drawArrays env.gl Constants.triangle_fan 0 360
     };
-    let myDrawRect =
-      drawRect vertex_buffer::(Gl.createBuffer env.gl) color_buffer::(Gl.createBuffer env.gl);
+    let myDrawRect width::width height::height color::color position::position =>
+      drawRect
+        vertex_buffer::(Gl.createBuffer env.gl)
+        color_buffer::(Gl.createBuffer env.gl)
+        width::width
+        height::height
+        color::color
+        position::position;
+    /* let myDrawRect =
+       drawRect vertex_buffer::(Gl.createBuffer env.gl) color_buffer::(Gl.createBuffer env.gl); */
     let myDrawCircle =
       drawCircle vertex_buffer::(Gl.createBuffer env.gl) color_buffer::(Gl.createBuffer env.gl);
     let centerPoint puzzleSize::puzzleSize position::(GCoord {x, y}) =>
@@ -826,85 +876,85 @@ let module Make (Gl: GlT) => {
     let render puzzle::puzzle gameState::gameState time => {
       Gl.clear env.gl (Constants.color_buffer_bit lor Constants.depth_buffer_bit);
       myDrawRect
-        width::windowSize height::windowSize color::Color.grey position::(GCoord {x: 0, y: 0});
-      myDrawRect
-        width::(windowSize - frameWidth * 2)
-        height::(windowSize - frameWidth * 2)
-        color::Color.yellow
-        position::(GCoord {x: frameWidth, y: frameWidth});
-      drawPuzzle puzzle::puzzle;
-      let puzzleSize = List.length puzzle.grid;
-      let GCoord endTileCenter = getTileCenter (
-        centerPoint puzzleSize::puzzleSize position::(toGameCoord puzzle.endTile.position)
-      );
-      switch puzzle.endTile {
-      | {tileSide: Bottom} =>
-        myDrawCircle
-          radius::(lineWeight / 2)
-          color::Color.brown
-          position::(GCoord {x: endTileCenter.x, y: endTileCenter.y - 3 * lineWeight / 2})
-      | {tileSide: Left} =>
-        myDrawCircle
-          radius::(lineWeight / 2)
-          color::Color.brown
-          position::(GCoord {x: endTileCenter.x - 3 * lineWeight / 2, y: endTileCenter.y})
-      | {tileSide: Top} =>
-        myDrawCircle
-          radius::(lineWeight / 2)
-          color::Color.brown
-          position::(GCoord {x: endTileCenter.x, y: endTileCenter.y + 3 * lineWeight / 2})
-      | {tileSide: Right} =>
-        myDrawCircle
-          radius::(lineWeight / 2)
-          color::Color.brown
-          position::(GCoord {x: endTileCenter.x + 3 * lineWeight / 2, y: endTileCenter.y})
-      | {tileSide: Center} => ()
-      };
-      switch gameState.lineEdge {
-      | None => ()
-      | Some lineEdge =>
-        myDrawCircle
-          radius::lineWeight
-          color::Color.brightYellow
-          position::(
-            getTileCenter (
-              centerPoint puzzleSize::puzzleSize position::(toGameCoord puzzle.startTile)
-            )
-          );
-        ignore @@
-        List.map
-          (
-            fun tilePoint =>
-              drawCell
-                tile::tilePoint.tile
-                color::Color.brightYellow
-                position::(
-                  centerPoint puzzleSize::puzzleSize position::(toGameCoord tilePoint.position)
-                )
-          )
-          gameState.currentPath;
-        switch (maybeToTilePoint puzzle::puzzle position::lineEdge) {
-        | None => assert false
-        | Some curTile =>
-          switch gameState.currentPath {
-          | [] => drawTip puzzle::puzzle prevTile::None curTile::curTile lineEdge::lineEdge
-          | [head, ...tail] =>
-            drawTip puzzle::puzzle prevTile::(Some head) curTile::curTile lineEdge::lineEdge
-          }
-        };
-        /*myDrawCircle
-          radius::(lineWeight / 2)
-          color::Color.brown
-          position::(
-            getTileCenter (centerPoint puzzleSize::puzzleSize position::(toGameCoord puzzle.endTile))
-          );*/
-        myDrawCircle radius::(lineWeight / 2) color::Color.brightYellow position::lineEdge
-      }
+        width::windowSize height::windowSize color::Color.grey position::(GCoord {x: 0, y: 0})
+      /* myDrawRect
+           width::(windowSize - frameWidth * 2)
+           height::(windowSize - frameWidth * 2)
+           color::Color.yellow
+           position::(GCoord {x: frameWidth, y: frameWidth});
+         drawPuzzle puzzle::puzzle;
+         let puzzleSize = List.length puzzle.grid;
+         let GCoord endTileCenter = getTileCenter (
+           centerPoint puzzleSize::puzzleSize position::(toGameCoord puzzle.endTile.position)
+         );
+         switch puzzle.endTile {
+         | {tileSide: Bottom} =>
+           myDrawCircle
+             radius::(lineWeight / 2)
+             color::Color.brown
+             position::(GCoord {x: endTileCenter.x, y: endTileCenter.y - 3 * lineWeight / 2})
+         | {tileSide: Left} =>
+           myDrawCircle
+             radius::(lineWeight / 2)
+             color::Color.brown
+             position::(GCoord {x: endTileCenter.x - 3 * lineWeight / 2, y: endTileCenter.y})
+         | {tileSide: Top} =>
+           myDrawCircle
+             radius::(lineWeight / 2)
+             color::Color.brown
+             position::(GCoord {x: endTileCenter.x, y: endTileCenter.y + 3 * lineWeight / 2})
+         | {tileSide: Right} =>
+           myDrawCircle
+             radius::(lineWeight / 2)
+             color::Color.brown
+             position::(GCoord {x: endTileCenter.x + 3 * lineWeight / 2, y: endTileCenter.y})
+         | {tileSide: Center} => ()
+         };
+         switch gameState.lineEdge {
+         | None => ()
+         | Some lineEdge =>
+           myDrawCircle
+             radius::lineWeight
+             color::Color.brightYellow
+             position::(
+               getTileCenter (
+                 centerPoint puzzleSize::puzzleSize position::(toGameCoord puzzle.startTile)
+               )
+             );
+           ignore @@
+           List.map
+             (
+               fun tilePoint =>
+                 drawCell
+                   tile::tilePoint.tile
+                   color::Color.brightYellow
+                   position::(
+                     centerPoint puzzleSize::puzzleSize position::(toGameCoord tilePoint.position)
+                   )
+             )
+             gameState.currentPath;
+           switch (maybeToTilePoint puzzle::puzzle position::lineEdge) {
+           | None => assert false
+           | Some curTile =>
+             switch gameState.currentPath {
+             | [] => drawTip puzzle::puzzle prevTile::None curTile::curTile lineEdge::lineEdge
+             | [head, ...tail] =>
+               drawTip puzzle::puzzle prevTile::(Some head) curTile::curTile lineEdge::lineEdge
+             }
+           };
+           /*myDrawCircle
+             radius::(lineWeight / 2)
+             color::Color.brown
+             position::(
+               getTileCenter (centerPoint puzzleSize::puzzleSize position::(toGameCoord puzzle.endTile))
+             );*/
+           myDrawCircle radius::(lineWeight / 2) color::Color.brightYellow position::lineEdge
+         } */
     };
     let gameState = {currentPath: [], lineEdge: None};
     let puzzle = examplePuzzle;
     Gl.Events.onMouseDown window (onMouseDown puzzle::puzzle gameState::gameState);
     Gl.Events.onMouseMove window (onMouseMove puzzle::puzzle gameState::gameState);
-    Gl.displayFunc (render puzzle::puzzle gameState::gameState)
+    Gl.displayFunc window::window cb::(render puzzle::puzzle gameState::gameState)
   };
 };

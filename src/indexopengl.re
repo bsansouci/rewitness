@@ -1,3 +1,3 @@
-let module Game = Index.Make Opengl;
+let module Game = Index2.Make Opengl.Gl;
 
 Game.start ();

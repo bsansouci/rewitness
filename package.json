@@ -6,21 +6,22 @@
     "postinstall": "npm run build",
     "test": "_build/src/app.out",
     "start": "_build/src/app.out",
-    "build": "eval $(dependencyEnv) && nopam && rebel && webpack _build/conversion/src/Conversion_Tar__Indexwebgl.js _build/conversion/src/app.js",
+    "build": "eval $(dependencyEnv) && nopam && rebel -verbose && webpack _build/top-web/src/TopWeb_Tar__Indexwebgl.js _build/top-web/src/app.js",
     "top": "eval $(dependencyEnv) && rtop",
     "env": "eval $(dependencyEnv) && env",
     "editor": "eval $(dependencyEnv) && $EDITOR .",
-    "whereisocamlmerlin": "eval $(dependencyEnv) && which ocamlmerlin-reason",
+    "whereisocamlmerlin": "eval $(dependencyEnv)a && which ocamlmerlin-reason",
     "mlre": "pbpaste | ./node_modules/reason/refmt_impl.native -parse ml -print re -use-stdin true -is-interface-pp false",
     "reml": "pbpaste | ./node_modules/reason/refmt_impl.native -parse re -print ml -use-stdin true -is-interface-pp false"
   },
   "dependencies": {
-    "@opam-alpha/lablgl": "*",
+    "@opam-alpha/tgls": "*",
+    "@opam-alpha/tsdl": "*",
+    "@opam-alpha/topkg": "*",
     "@opam-alpha/merlin": "^ 2.5.0",
     "dependency-env": "https://github.com/npm-ml/dependency-env.git",
     "nopam": "https://github.com/yunxing/nopam.git",
     "realpath": "*",
-    "rebel": "https://github.com/reasonml/rebel",
     "reason": "https://github.com/facebook/reason.git",
     "bs-platform": "https://github.com/bloomberg/bucklescript.git",
     "webpack": "*"
@@ -28,11 +29,16 @@
   "rebel": {
     "targets": [
       {
+        "target": "top-native",
+        "engine": "native",
+        "entry": "src/indexopengl.re",
+        "unstable_flags": {
+          "compile": "-package tgls.tgles2,tsdl",
+          "link": "-linkpkg -package tgls.tgles2,tsdl"
+        }
+      },
+      {
         "target": "top-web",
-        "engine": "bucklescript",
-        "entry": "src/indexwebgl.re"
-      }, {
-        "target": "conversion",
         "engine": "bucklescript",
         "entry": "src/indexwebgl.re"
       }
