@@ -35,6 +35,7 @@ external addToBody : 'canvas => unit = "document.body.appendChild" [@@bs.val];
 external getContext : 'canvas => string => 'context = "getContext" [@@bs.send];
 
 let module Gl = {
+  let target = "web";
   type contextT;
   module type WindowT = {
     type t;
@@ -145,7 +146,12 @@ let module Gl = {
   type dataKind =
     | Float32 float32Array
     | UInt16 uint16Array;
-  external bufferData : context::contextT => target::int => data::dataKind => usage::int => unit = "bufferData" [@@bs.send];
+  external _bufferData : context::contextT => target::int => data::array 'a => usage::int => unit = "bufferData" [@@bs.send];
+  let bufferData context::context target::target data::data usage::usage =>
+    switch data {
+    | Float32 x => _bufferData context::context target::target data::x usage::usage
+    | UInt16 x => _bufferData context::context target::target data::x usage::usage
+    };
   external viewport : context::contextT => x::int => y::int => width::int => height::int => unit = "viewport" [@@bs.send];
   external clear : context::contextT => mask::int => unit = "clear" [@@bs.send];
   /* TODO: We'll need to do something about this */
@@ -205,15 +211,112 @@ let module Gl = {
                               value::Mat4.t =>
                               unit = "uniformMatrix4fv" [@@bs.send];
   /* Can return other value types as well, see https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/Types */
-  external getProgramParameter : context::contextT => program::programT => paramName::int => int = "getProgramParameter" [@@bs.send];
-  external getShaderParameter : context::contextT => shader::shaderT => paramName::int => int = "getShaderParameter" [@@bs.send];
-  external compileStatus : context::contextT => int = "COMPILE_STATUS" [@@bs.send];
-  let getCompileStatus context::(context: contextT) shader::shader =>
-    getShaderParameter context::context shader::shader paramName::(compileStatus context::context) == 1;
-  external getShaderInfoLog : context::contextT =>
-                              shader::shaderT =>
-                              maxLength::int [@bs.ignore] =>
-                              string = "getShaderInfoLog" [@@bs.send];
+  type shaderParamsInternalT 'a =
+    | Shader_delete_status_internal :shaderParamsInternalT bool
+    | Compile_status_internal :shaderParamsInternalT bool
+    | Shader_type_internal :shaderParamsInternalT int;
+  type programParamsInternalT 'a =
+    | Program_delete_status_internal :programParamsInternalT bool
+    | Link_status_internal :programParamsInternalT bool
+    | Validate_status_internal :programParamsInternalT bool;
+  /* | Attached_shaders_internal :programParamsInternalT int
+     | Active_attributes_internal :programParamsInternalT int
+     | Active_uniforms_internal :programParamsInternalT int */
+  type shaderParamsT =
+    | Shader_delete_status
+    | Compile_status
+    | Shader_type;
+  type programParamsT =
+    | Program_delete_status
+    | Link_status
+    | Validate_status;
+  /* | Attached_shaders
+     | Active_attributes
+     | Active_uniforms */
+  external deleteStatus : context::contextT => int = "DELETE_STATUS" [@@bs.get];
+  external compileStatus : context::contextT => int = "COMPILE_STATUS" [@@bs.get];
+  external linkStatus : context::contextT => int = "LINK_STATUS" [@@bs.get];
+  external validateStatus : context::contextT => int = "VALIDATE_STATUS" [@@bs.get];
+  external shaderType : context::contextT => int = "SHADER_TYPE" [@@bs.get];
+  external _getProgramParameter : context::contextT =>
+                                  program::programT =>
+                                  paramName::int =>
+                                  (programParamsInternalT 'a) [@bs.ignore] =>
+                                  'a = "getProgramParameter" [@@bs.send];
+  type ret =
+    | Bool bool
+    | Int int;
+  let getProgramParameter context::context program::program paramName::paramName =>
+    switch paramName {
+    | Program_delete_status =>
+      Bool (
+        _getProgramParameter
+          context::context
+          program::program
+          paramName::(deleteStatus context::context)
+          Program_delete_status_internal
+      )
+    | Link_status =>
+      Bool (
+        _getProgramParameter
+          context::context
+          program::program
+          paramName::(linkStatus context::context)
+          Link_status_internal
+      )
+    | Validate_status =>
+      Bool (
+        _getProgramParameter
+          context::context
+          program::program
+          paramName::(validateStatus context::context)
+          Validate_status_internal
+      )
+    };
+  external _getShaderParameter : context::contextT =>
+                                 shader::shaderT =>
+                                 paramName::int =>
+                                 (shaderParamsInternalT 'a) [@bs.ignore] =>
+                                 'a = "getShaderParameter" [@@bs.send];
+  let getShaderParameter context::context shader::shader paramName::paramName =>
+    switch paramName {
+    | Shader_delete_status =>
+      Bool (
+        _getShaderParameter
+          context::context
+          shader::shader
+          paramName::(deleteStatus context::context)
+          Shader_delete_status_internal
+      )
+    | Compile_status =>
+      Bool (
+        _getShaderParameter
+          context::context
+          shader::shader
+          paramName::(compileStatus context::context)
+          Compile_status_internal
+      )
+    | Shader_type =>
+      Int (
+        _getShaderParameter
+          context::context
+          shader::shader
+          paramName::(shaderType context::context)
+          Shader_type_internal
+      )
+    };
+  /* let getShaderParameter context::context shader::shader paramName::(paramName : param 'a) : 'a =>
+     switch (paramName) {
+       | _ x => getShaderParameter context::context shader::shader paramName::x paramName
+     }; */
+  /* TODO: make a variant */
+  /* let getCompileStatus context::(context: contextT) shader::shader => (
+       getShaderParameter context::context shader::shader paramName::(compileStatus context::context)
+     );
+     let getLinkStatus context::(context: contextT) program::program =>
+       getProgramParameter context::context program::program paramName::(linkStatus context::context) == 1; */
+  external getShaderInfoLog : context::contextT => shader::shaderT => string = "getShaderInfoLog" [@@bs.send];
+  external getProgramInfoLog : context::contextT => program::programT => string = "getProgramInfoLog" [@@bs.send];
   external getShaderSource : context::contextT => shader::shaderT => string = "getShaderSource" [@@bs.send];
   external drawArrays : context::contextT => mode::int => first::int => count::int => unit = "drawArrays" [@@bs.send];
   external drawElements : context::contextT =>

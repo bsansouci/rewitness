@@ -3,6 +3,7 @@
  * vim: set ft=reason:
  */
 module type GlT = {
+  let target: string;
   type contextT;
   module type WindowT = {
     type t;
@@ -94,11 +95,25 @@ module type GlT = {
   let module Mat4: Mat4T;
   let uniformMatrix4fv:
     context::contextT => location::uniformT => transpose::boolT => value::Mat4.t => unit;
-  let getCompileStatus: context::contextT => shader::shaderT => bool;
+  /* let getCompileStatus: context::contextT => shader::shaderT => bool; */
+  /* let getLinkStatus: context::contextT => program::programT => bool; */
   /* Can return other value types as well, see https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/Types */
-  let getProgramParameter: context::contextT => program::programT => paramName::int => int;
-  let getShaderParameter: context::contextT => shader::shaderT => paramName::int => int;
-  let getShaderInfoLog: context::contextT => shader::shaderT => maxLength::int => string;
+  type ret =
+    | Bool bool
+    | Int int;
+  type shaderParamsT =
+    | Shader_delete_status
+    | Compile_status
+    | Shader_type;
+  type programParamsT =
+    | Program_delete_status
+    | Link_status
+    | Validate_status;
+  let getProgramParameter:
+    context::contextT => program::programT => paramName::programParamsT => ret;
+  let getShaderParameter: context::contextT => shader::shaderT => paramName::shaderParamsT => ret;
+  let getShaderInfoLog: context::contextT => shader::shaderT => string;
+  let getProgramInfoLog: context::contextT => program::programT => string;
   let getShaderSource: context::contextT => shader::shaderT => string;
   let drawArrays: context::contextT => mode::int => first::int => count::int => unit;
   let drawElements:
@@ -139,34 +154,56 @@ let module Make (Gl: GlT) => {
     let vertex_shader = Gl.createShader env.gl Constants.vertex_shader;
     Gl.shaderSource env.gl vertex_shader vertex_shader_source;
     Gl.compileShader env.gl vertex_shader;
-    if (Gl.getCompileStatus context::env.gl shader::vertex_shader) {
+    let compiledCorrectly =
+      switch (
+        Gl.getShaderParameter context::env.gl shader::vertex_shader paramName::Gl.Compile_status
+      ) {
+      | Gl.Int _ => assert false
+      | Gl.Bool x => x
+      };
+    if compiledCorrectly {
       let fragment_shader = Gl.createShader env.gl Constants.fragment_shader;
       Gl.shaderSource env.gl fragment_shader fragment_shader_source;
       Gl.compileShader env.gl fragment_shader;
-      if (Gl.getCompileStatus context::env.gl shader::fragment_shader) {
+      let compiledCorrectly =
+        switch (
+          Gl.getShaderParameter
+            context::env.gl shader::fragment_shader paramName::Gl.Compile_status
+        ) {
+        | Gl.Int _ => assert false
+        | Gl.Bool x => x
+        };
+      if compiledCorrectly {
         let program = Gl.createProgram env.gl;
         Gl.attachShader context::env.gl program::program shader::vertex_shader;
+        /* Gl.deleteShader */
         Gl.attachShader context::env.gl program::program shader::fragment_shader;
+        /* Gl.deleteShader */
         Gl.linkProgram env.gl program;
-        Some program
+        let linkedCorrectly =
+          switch (
+            Gl.getProgramParameter context::env.gl program::program paramName::Gl.Link_status
+          ) {
+          | Gl.Int _ => assert false
+          | Gl.Bool x => x
+          };
+        if linkedCorrectly {
+          Some program
+        } else {
+          print_endline @@
+          "Linking error: " ^ Gl.getProgramInfoLog context::env.gl program::program;
+          None
+        }
       } else {
-        print_endline (Gl.getShaderInfoLog context::env.gl shader::fragment_shader maxLength::0);
+        print_endline @@
+        "Fragment shader error: " ^ Gl.getShaderInfoLog context::env.gl shader::fragment_shader;
         None
       }
     } else {
-      print_endline (Gl.getShaderInfoLog context::env.gl shader::vertex_shader maxLength::0);
+      print_endline @@
+      "Vertex shader error: " ^ Gl.getShaderInfoLog context::env.gl shader::vertex_shader;
       None
     }
-    /* if (0 == Gl.getProgramParameter env.gl program Constants.link_status) {
-         Js.log "Failed to initialize shader: ";
-         Js.log (Gl.getShaderInfoLog env.gl vertex_shader);
-         Js.log (Gl.getShaderParameter env.gl vertex_shader Constants.compile_status);
-         Js.log (Gl.getShaderInfoLog env.gl fragment_shader);
-         Js.log (Gl.getShaderParameter env.gl fragment_shader Constants.compile_status)
-       } else { */
-    /* Js.log "Shader initialized!"; */
-    /* }; */
-    /* program */
   };
 
   /** Setting up the game's datatypes. **/
@@ -239,9 +276,21 @@ let module Make (Gl: GlT) => {
       [B.tr, B.lr, B.ltr, B.lr, B.lr, B.lr, B.lt]
     ]
   };
+  let preprocess target shader =>
+    if (target == "web") {
+      "#version 100 \n precision highp float; \n" ^ shader
+    } else if (
+      target == "native"
+    ) {
+      "#version 120 \n" ^ shader
+    } else {
+      shader
+    };
   let start () => {
-    let vertex_shader_source = {|
-       #version 100
+    let vertex_shader_source =
+      preprocess
+        Gl.target
+        {|
        attribute vec3 aVertexPosition;
        attribute vec4 aVertexColor;
 
@@ -254,10 +303,10 @@ let module Make (Gl: GlT) => {
          gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
          vColor = aVertexColor;
        }|};
-    let fragment_shader_source = {|
-       #version 100
-       precision mediump float;
-
+    let fragment_shader_source =
+      preprocess
+        Gl.target
+        {|
        varying vec4 vColor;
 
        void main(void) {
@@ -265,7 +314,7 @@ let module Make (Gl: GlT) => {
        }
      |};
     let window = Gl.Window.init argv::Sys.argv;
-    /* Gl.Window.setWindowSize window::window width::windowSize height::windowSize; */
+    Gl.Window.setWindowSize window::window width::windowSize height::windowSize;
     let env = build_gl_env window;
     let program =
       switch (addProgram env vertex_shader_source fragment_shader_source) {
@@ -381,16 +430,8 @@ let module Make (Gl: GlT) => {
       Gl.uniformMatrix4fv env.gl mv_matrix_uniform Gl.false_ env.camera.model_view_matrix;
       Gl.drawArrays env.gl Constants.triangle_fan 0 360
     };
-    let myDrawRect width::width height::height color::color position::position =>
-      drawRect
-        vertex_buffer::(Gl.createBuffer env.gl)
-        color_buffer::(Gl.createBuffer env.gl)
-        width::width
-        height::height
-        color::color
-        position::position;
-    /* let myDrawRect =
-       drawRect vertex_buffer::(Gl.createBuffer env.gl) color_buffer::(Gl.createBuffer env.gl); */
+    let myDrawRect =
+      drawRect vertex_buffer::(Gl.createBuffer env.gl) color_buffer::(Gl.createBuffer env.gl);
     let myDrawCircle =
       drawCircle vertex_buffer::(Gl.createBuffer env.gl) color_buffer::(Gl.createBuffer env.gl);
     let centerPoint puzzleSize::puzzleSize position::(GCoord {x, y}) =>
@@ -876,80 +917,80 @@ let module Make (Gl: GlT) => {
     let render puzzle::puzzle gameState::gameState time => {
       Gl.clear env.gl (Constants.color_buffer_bit lor Constants.depth_buffer_bit);
       myDrawRect
-        width::windowSize height::windowSize color::Color.grey position::(GCoord {x: 0, y: 0})
-      /* myDrawRect
-           width::(windowSize - frameWidth * 2)
-           height::(windowSize - frameWidth * 2)
-           color::Color.yellow
-           position::(GCoord {x: frameWidth, y: frameWidth});
-         drawPuzzle puzzle::puzzle;
-         let puzzleSize = List.length puzzle.grid;
-         let GCoord endTileCenter = getTileCenter (
-           centerPoint puzzleSize::puzzleSize position::(toGameCoord puzzle.endTile.position)
-         );
-         switch puzzle.endTile {
-         | {tileSide: Bottom} =>
-           myDrawCircle
-             radius::(lineWeight / 2)
-             color::Color.brown
-             position::(GCoord {x: endTileCenter.x, y: endTileCenter.y - 3 * lineWeight / 2})
-         | {tileSide: Left} =>
-           myDrawCircle
-             radius::(lineWeight / 2)
-             color::Color.brown
-             position::(GCoord {x: endTileCenter.x - 3 * lineWeight / 2, y: endTileCenter.y})
-         | {tileSide: Top} =>
-           myDrawCircle
-             radius::(lineWeight / 2)
-             color::Color.brown
-             position::(GCoord {x: endTileCenter.x, y: endTileCenter.y + 3 * lineWeight / 2})
-         | {tileSide: Right} =>
-           myDrawCircle
-             radius::(lineWeight / 2)
-             color::Color.brown
-             position::(GCoord {x: endTileCenter.x + 3 * lineWeight / 2, y: endTileCenter.y})
-         | {tileSide: Center} => ()
-         };
-         switch gameState.lineEdge {
-         | None => ()
-         | Some lineEdge =>
-           myDrawCircle
-             radius::lineWeight
-             color::Color.brightYellow
-             position::(
-               getTileCenter (
-                 centerPoint puzzleSize::puzzleSize position::(toGameCoord puzzle.startTile)
-               )
-             );
-           ignore @@
-           List.map
-             (
-               fun tilePoint =>
-                 drawCell
-                   tile::tilePoint.tile
-                   color::Color.brightYellow
-                   position::(
-                     centerPoint puzzleSize::puzzleSize position::(toGameCoord tilePoint.position)
-                   )
-             )
-             gameState.currentPath;
-           switch (maybeToTilePoint puzzle::puzzle position::lineEdge) {
-           | None => assert false
-           | Some curTile =>
-             switch gameState.currentPath {
-             | [] => drawTip puzzle::puzzle prevTile::None curTile::curTile lineEdge::lineEdge
-             | [head, ...tail] =>
-               drawTip puzzle::puzzle prevTile::(Some head) curTile::curTile lineEdge::lineEdge
-             }
-           };
-           /*myDrawCircle
-             radius::(lineWeight / 2)
-             color::Color.brown
-             position::(
-               getTileCenter (centerPoint puzzleSize::puzzleSize position::(toGameCoord puzzle.endTile))
-             );*/
-           myDrawCircle radius::(lineWeight / 2) color::Color.brightYellow position::lineEdge
-         } */
+        width::windowSize height::windowSize color::Color.grey position::(GCoord {x: 0, y: 0});
+      myDrawRect
+        width::(windowSize - frameWidth * 2)
+        height::(windowSize - frameWidth * 2)
+        color::Color.yellow
+        position::(GCoord {x: frameWidth, y: frameWidth});
+      drawPuzzle puzzle::puzzle;
+      let puzzleSize = List.length puzzle.grid;
+      let GCoord endTileCenter = getTileCenter (
+        centerPoint puzzleSize::puzzleSize position::(toGameCoord puzzle.endTile.position)
+      );
+      switch puzzle.endTile {
+      | {tileSide: Bottom} =>
+        myDrawCircle
+          radius::(lineWeight / 2)
+          color::Color.brown
+          position::(GCoord {x: endTileCenter.x, y: endTileCenter.y - 3 * lineWeight / 2})
+      | {tileSide: Left} =>
+        myDrawCircle
+          radius::(lineWeight / 2)
+          color::Color.brown
+          position::(GCoord {x: endTileCenter.x - 3 * lineWeight / 2, y: endTileCenter.y})
+      | {tileSide: Top} =>
+        myDrawCircle
+          radius::(lineWeight / 2)
+          color::Color.brown
+          position::(GCoord {x: endTileCenter.x, y: endTileCenter.y + 3 * lineWeight / 2})
+      | {tileSide: Right} =>
+        myDrawCircle
+          radius::(lineWeight / 2)
+          color::Color.brown
+          position::(GCoord {x: endTileCenter.x + 3 * lineWeight / 2, y: endTileCenter.y})
+      | {tileSide: Center} => ()
+      };
+      switch gameState.lineEdge {
+      | None => ()
+      | Some lineEdge =>
+        myDrawCircle
+          radius::lineWeight
+          color::Color.brightYellow
+          position::(
+            getTileCenter (
+              centerPoint puzzleSize::puzzleSize position::(toGameCoord puzzle.startTile)
+            )
+          );
+        ignore @@
+        List.map
+          (
+            fun tilePoint =>
+              drawCell
+                tile::tilePoint.tile
+                color::Color.brightYellow
+                position::(
+                  centerPoint puzzleSize::puzzleSize position::(toGameCoord tilePoint.position)
+                )
+          )
+          gameState.currentPath;
+        switch (maybeToTilePoint puzzle::puzzle position::lineEdge) {
+        | None => assert false
+        | Some curTile =>
+          switch gameState.currentPath {
+          | [] => drawTip puzzle::puzzle prevTile::None curTile::curTile lineEdge::lineEdge
+          | [head, ...tail] =>
+            drawTip puzzle::puzzle prevTile::(Some head) curTile::curTile lineEdge::lineEdge
+          }
+        };
+        /*myDrawCircle
+          radius::(lineWeight / 2)
+          color::Color.brown
+          position::(
+            getTileCenter (centerPoint puzzleSize::puzzleSize position::(toGameCoord puzzle.endTile))
+          );*/
+        myDrawCircle radius::(lineWeight / 2) color::Color.brightYellow position::lineEdge
+      }
     };
     let gameState = {currentPath: [], lineEdge: None};
     let puzzle = examplePuzzle;
