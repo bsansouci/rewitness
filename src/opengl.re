@@ -78,11 +78,6 @@ let module Gl = {
     type stateT =
       | DOWN
       | UP;
-    let onMouseDown:
-      window::Window.t =>
-      (button::buttonStateT => state::stateT => x::int => y::int => unit) =>
-      unit;
-    let onMouseMove: window::Window.t => (x::int => y::int => unit) => unit;
   };
   let module Events = {
     type buttonStateT =
@@ -92,66 +87,51 @@ let module Gl = {
     type stateT =
       | DOWN
       | UP;
-    let shouldQuit = ref false;
-    let mouseDownCb = ref None;
-    let mouseMoveCb = ref None;
-    let eventLoop = {
-      let e = Sdl.Event.create ();
-      let rec recur () :bool => {
-        let shouldQuit = ref false;
-        while (Sdl.poll_event (Some e)) {
-          switch Sdl.Event.(enum (get e typ)) {
-          | `Quit => shouldQuit := true
-          | `Mouse_button_down =>
-            switch !mouseDownCb {
-            | None => ()
-            | Some cb =>
-              let x = Sdl.Event.(get e mouse_button_x);
-              let y = Sdl.Event.(get e mouse_button_y);
-              let button =
-                switch Sdl.Event.(get e mouse_button_button) {
-                | 1 => LEFT_BUTTON
-                | 2 => MIDDLE_BUTTON
-                | 3 => RIGHT_BUTTON
-                | _ => failwith "Button not supported"
-                };
-              cb button::button state::DOWN x::x y::y;
-              ()
-            }
-          | `Mouse_motion =>
-            switch !mouseMoveCb {
-            | None => ()
-            | Some cb =>
-              let x = Sdl.Event.(get e mouse_motion_x);
-              let y = Sdl.Event.(get e mouse_motion_y);
-              cb x::x y::y;
-              ()
-            }
-          | _ => ()
-          }
-        };
-        !shouldQuit
-      };
-      recur
-    };
-    let onMouseDown
-        window::(window: Window.t)
-        (cb: button::buttonStateT => state::stateT => x::int => y::int => unit) =>
-      mouseDownCb := Some cb;
-    let onMouseMove window::(window: Window.t) (cb: x::int => y::int => unit) =>
-      mouseMoveCb := Some cb;
-    /* Document.addEventListener
-       window
-       "mousemove"
-       (
-         fun e => {
-           let x = getClientX e;
-           let y = getClientY e;
-           cb x::x y::y
-         }
-       ); */
   };
-  let displayFunc window::(window: Window.t) cb::(cb: float => unit) => {
+  type mouseDownT =
+    button::Events.buttonStateT => state::Events.stateT => x::int => y::int => unit;
+  let render
+      window::(window: Window.t)
+      mouseDown::(mouseDown: option mouseDownT)=?
+      mouseMove::(mouseMove: option (x::int => y::int => unit))=?
+      displayFunc::(displayFunc: float => unit)
+      () => {
+    let e = Sdl.Event.create ();
+    let rec checkEvents () :bool => {
+      let shouldQuit = ref false;
+      while (Sdl.poll_event (Some e)) {
+        switch Sdl.Event.(enum (get e typ)) {
+        | `Quit => shouldQuit := true
+        | `Mouse_button_down =>
+          switch mouseDown {
+          | None => ()
+          | Some cb =>
+            let x = Sdl.Event.(get e mouse_button_x);
+            let y = Sdl.Event.(get e mouse_button_y);
+            let button =
+              switch Sdl.Event.(get e mouse_button_button) {
+              | 1 => Events.LEFT_BUTTON
+              | 2 => Events.MIDDLE_BUTTON
+              | 3 => Events.RIGHT_BUTTON
+              | _ => failwith "Button not supported"
+              };
+            cb button::button state::Events.DOWN x::x y::y;
+            ()
+          }
+        | `Mouse_motion =>
+          switch mouseMove {
+          | None => ()
+          | Some cb =>
+            let x = Sdl.Event.(get e mouse_motion_x);
+            let y = Sdl.Event.(get e mouse_motion_y);
+            cb x::x y::y;
+            ()
+          }
+        | _ => ()
+        }
+      };
+      !shouldQuit
+    };
     let prevTime = ref Int64.zero;
     let rec tick () => {
       let time = Sdl.get_performance_counter ();
@@ -159,33 +139,20 @@ let module Gl = {
         Int64.div
           (Int64.mul (Int64.sub time !prevTime) (Int64.of_float 1000.))
           (Sdl.get_performance_frequency ());
-      /* print_endline @@ "hey " ^ string_of_float (Int64.to_float diff); */
-      let shouldQuit = Events.eventLoop ();
+      let shouldQuit = checkEvents ();
       if (Int64.compare diff (Int64.of_float 16.666) == 1) {
-        cb (Int64.to_float diff);
+        displayFunc (Int64.to_float diff);
         Sdl.gl_swap_window window;
         prevTime := time
       };
       if (not shouldQuit) {
         tick ()
       }
-      /* ignore @@ (
-           Sdl.wait_event (Some e) >>= (
-             fun () =>
-               switch Sdl.Event.(enum (get e typ)) {
-               | `Quit => Ok ()
-               | _ => Ok (tick ())
-               }
-           )
-         ) */
-      /* tick () */
     };
     tick ()
   };
   type programT = int;
   type shaderT = int;
-  /* HACK */
-  /* Context needs to be the current context */
   let clearColor context::context r::r g::g b::b a::a => Gl.clear_color r g b a;
   let createProgram context::(context: contextT) :programT => Gl.create_program ();
   let createShader context::(context: contextT) shaderType::shaderType :shaderT => Gl.create_shader shaderType;
@@ -197,14 +164,10 @@ let module Gl = {
   let linkProgram context::context program::program => Gl.link_program program;
   let useProgram context::context program::program => Gl.use_program program;
   type bufferT = Gl.enum;
-  /* Sigh, Tgl3 uses a lot of ints everywhere... */
   type attributeT = int;
   type uniformT = int;
-  type boolT = bool;
-  let false_ = false;
-  let true_ = true;
-  type float32Array = Bigarray.Array1.t float Bigarray.float32_elt Bigarray.c_layout;
-  type uint16Array = Bigarray.Array1.t int Bigarray.int16_unsigned_elt Bigarray.c_layout;
+  type float32Array = array float;
+  type uint16Array = array int;
   type dataKind =
     | Float32 float32Array
     | UInt16 uint16Array;
@@ -217,31 +180,21 @@ let module Gl = {
   };
   let bindBuffer context::(context: contextT) target::target buffer::buffer =>
     Gl.bind_buffer target buffer;
+  let createFloat32Array data => Bigarray.Array1.of_array Bigarray.float32 Bigarray.c_layout data;
+  let createUint16Array data =>
+    Bigarray.Array1.of_array Bigarray.int16_unsigned Bigarray.c_layout data;
   let bufferData context::(context: contextT) target::target data::(data: dataKind) usage::usage =>
     switch data {
-    | Float32 d => Gl.buffer_data target (Gl.bigarray_byte_size d) (Some d) usage
-    | UInt16 d => Gl.buffer_data target (Gl.bigarray_byte_size d) (Some d) usage
+    | Float32 d =>
+      let bigData = createFloat32Array d;
+      Gl.buffer_data target (Gl.bigarray_byte_size bigData) (Some bigData) usage
+    | UInt16 d =>
+      let bigData = createUint16Array d;
+      Gl.buffer_data target (Gl.bigarray_byte_size bigData) (Some bigData) usage
     };
   let viewport context::(context: contextT) x::x y::y width::width height::height =>
     Gl.viewport x y width height;
   let clear context::(context: contextT) mask::mask => Gl.clear mask;
-  /* TODO: Figure this out...
-     Not sure if this is possible
-
-     In module Gl:
-             Values do not match:
-               val createFloat32Array :
-                 float array ->
-                 (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Array1.t
-             is not included in
-               val createFloat32Array :
-                 float array -> (float, 'b) float32arrayOrUint16ArrayT
-
-
-     */
-  let createFloat32Array data => Bigarray.Array1.of_array Bigarray.float32 Bigarray.c_layout data;
-  let createUint16Array data =>
-    Bigarray.Array1.of_array Bigarray.int16_unsigned Bigarray.c_layout data;
   let getUniformLocation
       context::(context: contextT)
       program::(program: programT)
@@ -254,7 +207,6 @@ let module Gl = {
       name::name
       :attributeT =>
     Gl.get_attrib_location program name;
-  /* let validateAttribLocation context::(context : contextT) attribute */
   let enableVertexAttribArray context::(context: contextT) attribute::attribute => Gl.enable_vertex_attrib_array attribute;
   let vertexAttribPointer
       context::(context: contextT)
@@ -470,16 +422,12 @@ let module Gl = {
       out.(15) = 1.
     };
   };
-  /* count = 1 for now https://www.opengl.org/sdk/docs/man/html/glUniform.xhtml */
-  let uniformMatrix4fv
-      context::(context: contextT)
-      location::location
-      transpose::transpose
-      value::value =>
-    Gl.uniform_matrix4fv location 1 transpose (createFloat32Array (Mat4.to_array value));
-  type ret =
-    | Bool bool
-    | Int int;
+
+  /** count = 1 for now https://www.opengl.org/sdk/docs/man/html/glUniform.xhtml
+   * and transform = false because "Must be GL_FALSE"...
+   */
+  let uniformMatrix4fv context::(context: contextT) location::location value::value =>
+    Gl.uniform_matrix4fv location 1 false (createFloat32Array (Mat4.to_array value));
   type shaderParamsT =
     | Shader_delete_status
     | Compile_status
@@ -501,15 +449,11 @@ let module Gl = {
       paramName::paramName =>
     switch paramName {
     | Program_delete_status =>
-      Bool (
-        _getProgramParameter context::context program::program paramName::Gl.delete_status == 1
-      )
+      _getProgramParameter context::context program::program paramName::Gl.delete_status
     | Link_status =>
-      Bool (_getProgramParameter context::context program::program paramName::Gl.link_status == 1)
+      _getProgramParameter context::context program::program paramName::Gl.link_status
     | Validate_status =>
-      Bool (
-        _getProgramParameter context::context program::program paramName::Gl.validate_status == 1
-      )
+      _getProgramParameter context::context program::program paramName::Gl.validate_status
     };
   let _getShaderParameter = {
     let a = Bigarray.Array1.create Bigarray.int32 Bigarray.c_layout 1;
@@ -518,24 +462,14 @@ let module Gl = {
       Int32.to_int a.{0}
     }
   };
-  let getShaderParameter = {
-    let a = Bigarray.Array1.create Bigarray.int32 Bigarray.c_layout 1;
-    fun context::(context: contextT) shader::shader paramName::paramName =>
-      switch paramName {
-      | Shader_delete_status =>
-        Bool (_getShaderParameter context::context shader::shader paramName::Gl.delete_status == 1)
-      | Compile_status =>
-        Bool (
-          _getShaderParameter context::context shader::shader paramName::Gl.compile_status == 1
-        )
-      | Shader_type =>
-        Int (_getShaderParameter context::context shader::shader paramName::Gl.shader_type)
-      }
-  };
-  /* let getCompileStatus context::(context: contextT) shader::shader =>
-       getShaderParameter context::context shader::shader paramName::Gl.compile_status == Gl.true_;
-     let getLinkStatus context::(context: contextT) program::program =>
-       getProgramParameter context::context program::program paramName::Gl.link_status == Gl.true_; */
+  let getShaderParameter context::(context: contextT) shader::shader paramName::paramName =>
+    switch paramName {
+    | Shader_delete_status =>
+      _getShaderParameter context::context shader::shader paramName::Gl.delete_status
+    | Compile_status =>
+      _getShaderParameter context::context shader::shader paramName::Gl.compile_status
+    | Shader_type => _getShaderParameter context::context shader::shader paramName::Gl.shader_type
+    };
   let getShaderInfoLog context::(context: contextT) shader::shader => {
     let len = _getShaderParameter context::context shader::shader paramName::Gl.info_log_length;
     let logData = Bigarray.Array1.create Bigarray.Char Bigarray.c_layout len;

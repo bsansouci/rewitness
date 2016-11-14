@@ -2,177 +2,52 @@
  * vim: set ft=rust:
  * vim: set ft=reason:
  */
-module type GlT = {
-  let target: string;
-  type contextT;
-  module type WindowT = {
-    type t;
-    let getWidth: t => int;
-    let getHeight: t => int;
-    let init: argv::array string => t;
-    let setWindowSize: window::t => width::int => height::int => unit;
-    let initDisplayMode: window::t => double_buffer::bool => unit => unit;
-    let getContext: t => contextT;
-  };
-  let module Window: WindowT;
-  module type EventsT = {
-    type buttonStateT =
-      | LEFT_BUTTON
-      | MIDDLE_BUTTON
-      | RIGHT_BUTTON;
-    type stateT =
-      | DOWN
-      | UP;
-    let onMouseDown:
-      window::Window.t =>
-      (button::buttonStateT => state::stateT => x::int => y::int => unit) =>
-      unit;
-    let onMouseMove: window::Window.t => (x::int => y::int => unit) => unit;
-  };
-  let module Events: EventsT;
-  let displayFunc: window::Window.t => cb::(float => unit) => unit;
-  type programT;
-  type shaderT;
-  let clearColor: context::contextT => r::float => g::float => b::float => a::float => unit;
-  let createProgram: context::contextT => programT;
-  let createShader: context::contextT => shaderType::int => shaderT;
-  let attachShader: context::contextT => program::programT => shader::shaderT => unit;
-  let shaderSource: context::contextT => shader::shaderT => source::string => unit;
-  let compileShader: context::contextT => shader::shaderT => unit;
-  let linkProgram: context::contextT => program::programT => unit;
-  let useProgram: context::contextT => program::programT => unit;
-  type bufferT;
-  type attributeT;
-  type uniformT;
-  type boolT;
-  let false_: boolT;
-  let true_: boolT;
-  type float32Array;
-  type uint16Array;
-  let createBuffer: context::contextT => bufferT;
-  let bindBuffer: context::contextT => target::int => buffer::bufferT => unit;
-  /* TODO: unhack this */
-  type dataKind =
-    | Float32 float32Array
-    | UInt16 uint16Array;
-  let bufferData: context::contextT => target::int => data::dataKind => usage::int => unit;
-  let viewport: context::contextT => x::int => y::int => width::int => height::int => unit;
-  let clear: context::contextT => mask::int => unit;
-  /* TODO: We'll need to do something about this */
-  let createFloat32Array: array float => float32Array;
-  let createUint16Array: array int => uint16Array;
-  let getUniformLocation: context::contextT => program::programT => name::string => uniformT;
-  let getAttribLocation: context::contextT => program::programT => name::string => attributeT;
-  let enableVertexAttribArray: context::contextT => attribute::attributeT => unit;
-  let vertexAttribPointer:
-    context::contextT =>
-    attribute::attributeT =>
-    size::int =>
-    type_::int =>
-    normalize::boolT =>
-    stride::int =>
-    offset::int =>
-    unit;
-  module type Mat4T = {
-    type t;
-    let to_array: t => array float;
-    let create: unit => t;
-    /* let perspective: out::t => fovy::int => aspect::float => near::float => far::float => unit; */
-    let identity: out::t => unit;
-    let translate: out::t => matrix::t => vec::array float => unit;
-    let scale: out::t => matrix::t => vec::array float => unit;
-    let rotate: out::t => matrix::t => rad::float => vec::array float => unit;
-    let ortho:
-      out::t =>
-      left::float =>
-      right::float =>
-      bottom::float =>
-      top::float =>
-      near::float =>
-      far::float =>
-      unit;
-  };
-  let module Mat4: Mat4T;
-  let uniformMatrix4fv:
-    context::contextT => location::uniformT => transpose::boolT => value::Mat4.t => unit;
-  /* let getCompileStatus: context::contextT => shader::shaderT => bool; */
-  /* let getLinkStatus: context::contextT => program::programT => bool; */
-  /* Can return other value types as well, see https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/Types */
-  type ret =
-    | Bool bool
-    | Int int;
-  type shaderParamsT =
-    | Shader_delete_status
-    | Compile_status
-    | Shader_type;
-  type programParamsT =
-    | Program_delete_status
-    | Link_status
-    | Validate_status;
-  let getProgramParameter:
-    context::contextT => program::programT => paramName::programParamsT => ret;
-  let getShaderParameter: context::contextT => shader::shaderT => paramName::shaderParamsT => ret;
-  let getShaderInfoLog: context::contextT => shader::shaderT => string;
-  let getProgramInfoLog: context::contextT => program::programT => string;
-  let getShaderSource: context::contextT => shader::shaderT => string;
-  let drawArrays: context::contextT => mode::int => first::int => count::int => unit;
-  let drawElements:
-    context::contextT => mode::int => count::int => type_::int => offset::int => unit;
-};
-
-/* module type GameDepsT = {let module Gl: GlT; let module Mat4: Mat4T;}; */
-let module Make (Gl: GlT) => {
-  /* let module Gl = GameDeps.Gl; */
-  /* let module Mat4 = GameDeps.Mat4; */
+let module Make (Gl: Gl.t) => {
   /* Setting up the Gl utils functions */
-  type gl_camera = {projection_matrix: Gl.Mat4.t, model_view_matrix: Gl.Mat4.t};
-  type gl_env = {camera: gl_camera, window: Gl.Window.t, gl: Gl.contextT};
-  let set_projection (window: Gl.Window.t) (camera: gl_camera) =>
+  type glCamera = {projectionMatrix: Gl.Mat4.t, modelViewMatrix: Gl.Mat4.t};
+  type glEnv = {camera: glCamera, window: Gl.Window.t, gl: Gl.contextT};
+
+  /** Will mutate the projectionMatrix to be an ortho matrix with the given boundaries.
+   *  See this link for quick explanation of what this is.
+   *  https://shearer12345.github.io/graphics/assets/projectionPerspectiveVSOrthographic.png
+   */
+  let setProjection (window: Gl.Window.t) (camera: glCamera) =>
     Gl.Mat4.ortho
-      out::camera.projection_matrix
+      out::camera.projectionMatrix
       left::0.
       right::(float_of_int (Gl.Window.getWidth window))
       bottom::0.
       top::(float_of_int (Gl.Window.getHeight window))
       near::0.
       far::100.;
-  let translate_camera (camera: gl_camera) (offset: array float) =>
-    Gl.Mat4.translate camera.model_view_matrix camera.model_view_matrix offset;
-  let reset_mv (camera: gl_camera) => Gl.Mat4.identity camera.model_view_matrix;
-  let build_gl_env (window: Gl.Window.t) :gl_env => {
+  let resetCamera (camera: glCamera) => Gl.Mat4.identity camera.modelViewMatrix;
+  let buildGlEnv window::(window: Gl.Window.t) :glEnv => {
     let gl = Gl.Window.getContext window;
-    let gl_camera = {projection_matrix: Gl.Mat4.create (), model_view_matrix: Gl.Mat4.create ()};
-    let env = {camera: gl_camera, window, gl};
-    let canvas_width = Gl.Window.getWidth window;
-    let canvas_height = Gl.Window.getHeight window;
-    Gl.viewport gl 0 0 canvas_width canvas_height;
+    let glCamera = {projectionMatrix: Gl.Mat4.create (), modelViewMatrix: Gl.Mat4.create ()};
+    let env = {camera: glCamera, window, gl};
+    let canvasWidth = Gl.Window.getWidth window;
+    let canvasHeight = Gl.Window.getHeight window;
+    Gl.viewport gl 0 0 canvasWidth canvasHeight;
     Gl.clearColor gl 0.0 0.0 0.0 1.0;
     Gl.clear gl (Constants.color_buffer_bit lor Constants.depth_buffer_bit);
     env
   };
-  let addProgram (env: gl_env) vertex_shader_source fragment_shader_source :option Gl.programT => {
+  let getProgram
+      env::(env: glEnv)
+      vertexShader::vertexShaderSource
+      fragmentShader::fragmentShaderSource
+      :option Gl.programT => {
     let vertex_shader = Gl.createShader env.gl Constants.vertex_shader;
-    Gl.shaderSource env.gl vertex_shader vertex_shader_source;
+    Gl.shaderSource env.gl vertex_shader vertexShaderSource;
     Gl.compileShader env.gl vertex_shader;
     let compiledCorrectly =
-      switch (
-        Gl.getShaderParameter context::env.gl shader::vertex_shader paramName::Gl.Compile_status
-      ) {
-      | Gl.Int _ => assert false
-      | Gl.Bool x => x
-      };
+      Gl.getShaderParameter context::env.gl shader::vertex_shader paramName::Gl.Compile_status == 1;
     if compiledCorrectly {
       let fragment_shader = Gl.createShader env.gl Constants.fragment_shader;
-      Gl.shaderSource env.gl fragment_shader fragment_shader_source;
+      Gl.shaderSource env.gl fragment_shader fragmentShaderSource;
       Gl.compileShader env.gl fragment_shader;
       let compiledCorrectly =
-        switch (
-          Gl.getShaderParameter
-            context::env.gl shader::fragment_shader paramName::Gl.Compile_status
-        ) {
-        | Gl.Int _ => assert false
-        | Gl.Bool x => x
-        };
+        Gl.getShaderParameter context::env.gl shader::fragment_shader paramName::Gl.Compile_status == 1;
       if compiledCorrectly {
         let program = Gl.createProgram env.gl;
         Gl.attachShader context::env.gl program::program shader::vertex_shader;
@@ -181,12 +56,7 @@ let module Make (Gl: GlT) => {
         /* Gl.deleteShader */
         Gl.linkProgram env.gl program;
         let linkedCorrectly =
-          switch (
-            Gl.getProgramParameter context::env.gl program::program paramName::Gl.Link_status
-          ) {
-          | Gl.Int _ => assert false
-          | Gl.Bool x => x
-          };
+          Gl.getProgramParameter context::env.gl program::program paramName::Gl.Link_status == 1;
         if linkedCorrectly {
           Some program
         } else {
@@ -286,11 +156,10 @@ let module Make (Gl: GlT) => {
     } else {
       shader
     };
-  let start () => {
-    let vertex_shader_source =
-      preprocess
-        Gl.target
-        {|
+  let vertexShaderSource =
+    preprocess
+      Gl.target
+      {|
        attribute vec3 aVertexPosition;
        attribute vec4 aVertexColor;
 
@@ -303,50 +172,56 @@ let module Make (Gl: GlT) => {
          gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
          vColor = aVertexColor;
        }|};
-    let fragment_shader_source =
-      preprocess
-        Gl.target
-        {|
+  let fragmentShaderSource =
+    preprocess
+      Gl.target
+      {|
        varying vec4 vColor;
 
        void main(void) {
          gl_FragColor = vColor;
        }
      |};
+  let start () => {
     let window = Gl.Window.init argv::Sys.argv;
     Gl.Window.setWindowSize window::window width::windowSize height::windowSize;
-    let env = build_gl_env window;
+    let env = buildGlEnv window::window;
     let program =
-      switch (addProgram env vertex_shader_source fragment_shader_source) {
-      | None => assert false
+      switch (
+        getProgram env::env vertexShader::vertexShaderSource fragmentShader::fragmentShaderSource
+      ) {
+      | None => failwith "Could not create the program and/or the shaders. Aborting."
       | Some program => program
       };
     Gl.useProgram env.gl program;
-    let position_attrib = Gl.getAttribLocation env.gl program "aVertexPosition";
-    let color_attrib = Gl.getAttribLocation env.gl program "aVertexColor";
-    Gl.enableVertexAttribArray env.gl position_attrib;
-    Gl.enableVertexAttribArray env.gl color_attrib;
-    let p_matrix_uniform = Gl.getUniformLocation env.gl program "uPMatrix";
-    let mv_matrix_uniform = Gl.getUniformLocation env.gl program "uMVMatrix";
+    let positionAttrib = Gl.getAttribLocation env.gl program "aVertexPosition";
+    Gl.enableVertexAttribArray env.gl positionAttrib;
+    let colorAttrib = Gl.getAttribLocation env.gl program "aVertexColor";
+    Gl.enableVertexAttribArray env.gl colorAttrib;
+    let pMatrixUniform = Gl.getUniformLocation env.gl program "uPMatrix";
     Gl.uniformMatrix4fv
-      context::env.gl
-      location::p_matrix_uniform
-      transpose::Gl.false_
-      value::env.camera.projection_matrix;
+      context::env.gl location::pMatrixUniform value::env.camera.projectionMatrix;
+    let mvMatrixUniform = Gl.getUniformLocation env.gl program "uMVMatrix";
     Gl.uniformMatrix4fv
-      context::env.gl
-      location::mv_matrix_uniform
-      transpose::Gl.false_
-      value::env.camera.model_view_matrix;
-    set_projection env.window env.camera;
+      context::env.gl location::mvMatrixUniform value::env.camera.modelViewMatrix;
+    setProjection env.window env.camera;
+
+    /** We define the drawRect and drawCircle here so we can capture in their closure the following variables
+     *  env, positionAttrib, pMatrixUniform, mvMatrixUniform.
+     *  I'm not sure what the easiest way is to keep the attributes defined in the string shader and the
+     *  "pointers" to those that we get with `getAttribLocation`.
+     *
+     */
     let drawRect
-        vertex_buffer::vertex_buffer
-        color_buffer::color_buffer
+        vertexBuffer::vertexBuffer
+        colorBuffer::colorBuffer
         width::width
         height::height
         color::(r, g, b)
         position::(GCoord {x, y}) => {
-      reset_mv env.camera;
+      resetCamera env.camera;
+
+      /** Setup vertices to be sent to the GPU **/
       let square_vertices = [|
         float_of_int @@ x + width,
         float_of_int @@ y + height,
@@ -361,37 +236,37 @@ let module Make (Gl: GlT) => {
         float_of_int y,
         0.0
       |];
-      Gl.bindBuffer context::env.gl target::Constants.array_buffer buffer::vertex_buffer;
+      Gl.bindBuffer context::env.gl target::Constants.array_buffer buffer::vertexBuffer;
       Gl.bufferData
         context::env.gl
         target::Constants.array_buffer
-        data::(Gl.Float32 (Gl.createFloat32Array square_vertices))
+        data::(Gl.Float32 square_vertices)
         usage::Constants.static_draw;
-      Gl.vertexAttribPointer env.gl position_attrib 3 Constants.float_ Gl.false_ 0 0;
+      Gl.vertexAttribPointer env.gl positionAttrib 3 Constants.float_ false 0 0;
 
-      /** Colors **/
+      /** Setup colors to be sent to the GPU **/
       let square_colors = ref [];
       for i in 0 to 3 {
         square_colors := [r, g, b, 1., ...!square_colors]
       };
-      Gl.bindBuffer context::env.gl target::Constants.array_buffer buffer::color_buffer;
+      Gl.bindBuffer context::env.gl target::Constants.array_buffer buffer::colorBuffer;
       Gl.bufferData
         context::env.gl
         target::Constants.array_buffer
-        data::(Gl.Float32 (Gl.createFloat32Array (Array.of_list !square_colors)))
+        data::(Gl.Float32 (Array.of_list !square_colors))
         usage::Constants.static_draw;
-      Gl.vertexAttribPointer env.gl color_attrib 4 Constants.float_ Gl.false_ 0 0;
-      Gl.uniformMatrix4fv env.gl p_matrix_uniform Gl.false_ env.camera.projection_matrix;
-      Gl.uniformMatrix4fv env.gl mv_matrix_uniform Gl.false_ env.camera.model_view_matrix;
+      Gl.vertexAttribPointer env.gl colorAttrib 4 Constants.float_ false 0 0;
+      Gl.uniformMatrix4fv env.gl pMatrixUniform env.camera.projectionMatrix;
+      Gl.uniformMatrix4fv env.gl mvMatrixUniform env.camera.modelViewMatrix;
       Gl.drawArrays env.gl Constants.triangle_strip 0 4
     };
     let drawCircle
-        vertex_buffer::vertex_buffer
-        color_buffer::color_buffer
+        vertexBuffer::vertexBuffer
+        colorBuffer::colorBuffer
         radius::radius
         color::(r, g, b)
         position::(GCoord {x, y}) => {
-      reset_mv env.camera;
+      resetCamera env.camera;
 
       /** Instantiate a list of points for the circle and bind to the circleBuffer. **/
       let circle_vertex = ref [];
@@ -406,34 +281,34 @@ let module Make (Gl: GlT) => {
           ...!circle_vertex
         ]
       };
-      Gl.bindBuffer env.gl Constants.array_buffer vertex_buffer;
+      Gl.bindBuffer env.gl Constants.array_buffer vertexBuffer;
       Gl.bufferData
         context::env.gl
         target::Constants.array_buffer
-        data::(Gl.Float32 (Gl.createFloat32Array (Array.of_list !circle_vertex)))
+        data::(Gl.Float32 (Array.of_list !circle_vertex))
         usage::Constants.static_draw;
-      Gl.vertexAttribPointer env.gl position_attrib 3 Constants.float_ Gl.false_ 0 0;
+      Gl.vertexAttribPointer env.gl positionAttrib 3 Constants.float_ false 0 0;
 
       /** Instantiate color array **/
       let circle_colors = ref [];
       for i in 0 to 360 {
         circle_colors := [r, g, b, 1., ...!circle_colors]
       };
-      Gl.bindBuffer env.gl Constants.array_buffer color_buffer;
+      Gl.bindBuffer env.gl Constants.array_buffer colorBuffer;
       Gl.bufferData
         context::env.gl
         target::Constants.array_buffer
-        data::(Gl.Float32 (Gl.createFloat32Array (Array.of_list !circle_colors)))
+        data::(Gl.Float32 (Array.of_list !circle_colors))
         usage::Constants.static_draw;
-      Gl.vertexAttribPointer env.gl color_attrib 4 Constants.float_ Gl.false_ 0 0;
-      Gl.uniformMatrix4fv env.gl p_matrix_uniform Gl.false_ env.camera.projection_matrix;
-      Gl.uniformMatrix4fv env.gl mv_matrix_uniform Gl.false_ env.camera.model_view_matrix;
+      Gl.vertexAttribPointer env.gl colorAttrib 4 Constants.float_ false 0 0;
+      Gl.uniformMatrix4fv env.gl pMatrixUniform env.camera.projectionMatrix;
+      Gl.uniformMatrix4fv env.gl mvMatrixUniform env.camera.modelViewMatrix;
       Gl.drawArrays env.gl Constants.triangle_fan 0 360
     };
     let myDrawRect =
-      drawRect vertex_buffer::(Gl.createBuffer env.gl) color_buffer::(Gl.createBuffer env.gl);
+      drawRect vertexBuffer::(Gl.createBuffer env.gl) colorBuffer::(Gl.createBuffer env.gl);
     let myDrawCircle =
-      drawCircle vertex_buffer::(Gl.createBuffer env.gl) color_buffer::(Gl.createBuffer env.gl);
+      drawCircle vertexBuffer::(Gl.createBuffer env.gl) colorBuffer::(Gl.createBuffer env.gl);
     let centerPoint puzzleSize::puzzleSize position::(GCoord {x, y}) =>
       GCoord {
         x: x + windowSize / 2 - puzzleSize * 3 * lineWeight / 2,
@@ -534,6 +409,8 @@ let module Make (Gl: GlT) => {
         Center
       }
     };
+
+    /** Draw the tip of the line if any. Just the tip. **/
     let drawTip puzzle::puzzle prevTile::maybePrevTile curTile::curTile lineEdge::(GCoord lineEdge) => {
       let puzzleSize = List.length puzzle.grid;
       let lineEdgeTileSide = getTileSide puzzle::puzzle tile::curTile position::(GCoord lineEdge);
@@ -650,7 +527,7 @@ let module Make (Gl: GlT) => {
       let dy = y2 - y1;
       sqrt @@ float_of_int (dx * dx + dy * dy)
     };
-    let print_tile tile =>
+    let printTile tile =>
       print_endline @@
       "bottom: " ^
       string_of_bool tile.bottom ^
@@ -676,7 +553,9 @@ let module Make (Gl: GlT) => {
     let min3 a b c => min a (min b c);
     let max3 a b c => max a (max b c);
 
-    /** Warning: cool iterative algorithm below **/
+    /** Warning: cool iterative algorithm below.
+     *  TODO(schmavery): I... don't remember how this works, could you fill in some explanation here.
+     */
     let getOptimalLineEdge
         puzzle::puzzle
         gameState::gameState
@@ -868,6 +747,8 @@ let module Make (Gl: GlT) => {
       | _ => ()
       }
     };
+
+    /** Computes the line drawn when the mouse is moved and mutates the gameState. **/
     let onMouseMove puzzle::puzzle gameState::gameState x::x y::y => {
       let mousePos = GCoord {x, y: windowSize - y};
       let rec loop i =>
@@ -914,6 +795,10 @@ let module Make (Gl: GlT) => {
         };
       loop 10
     };
+
+    /** Main render function.
+     *  It'll render the whole maze and the line being drawn.
+     */
     let render puzzle::puzzle gameState::gameState time => {
       Gl.clear env.gl (Constants.color_buffer_bit lor Constants.depth_buffer_bit);
       myDrawRect
@@ -983,19 +868,16 @@ let module Make (Gl: GlT) => {
             drawTip puzzle::puzzle prevTile::(Some head) curTile::curTile lineEdge::lineEdge
           }
         };
-        /*myDrawCircle
-          radius::(lineWeight / 2)
-          color::Color.brown
-          position::(
-            getTileCenter (centerPoint puzzleSize::puzzleSize position::(toGameCoord puzzle.endTile))
-          );*/
         myDrawCircle radius::(lineWeight / 2) color::Color.brightYellow position::lineEdge
       }
     };
     let gameState = {currentPath: [], lineEdge: None};
     let puzzle = examplePuzzle;
-    Gl.Events.onMouseDown window (onMouseDown puzzle::puzzle gameState::gameState);
-    Gl.Events.onMouseMove window (onMouseMove puzzle::puzzle gameState::gameState);
-    Gl.displayFunc window::window cb::(render puzzle::puzzle gameState::gameState)
+    Gl.render
+      window::window
+      mouseDown::(onMouseDown puzzle::puzzle gameState::gameState)
+      mouseMove::(onMouseMove puzzle::puzzle gameState::gameState)
+      displayFunc::(render puzzle::puzzle gameState::gameState)
+      ()
   };
 };

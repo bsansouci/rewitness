@@ -70,11 +70,6 @@ let module Gl = {
     type stateT =
       | DOWN
       | UP;
-    let onMouseDown:
-      window::Window.t =>
-      (button::buttonStateT => state::stateT => x::int => y::int => unit) =>
-      unit;
-    let onMouseMove: window::Window.t => (x::int => y::int => unit) => unit;
   };
   let module Events = {
     type buttonStateT =
@@ -84,7 +79,18 @@ let module Gl = {
     type stateT =
       | DOWN
       | UP;
-    let onMouseDown window::(window: Window.t) cb =>
+  };
+  type mouseDownT =
+    button::Events.buttonStateT => state::Events.stateT => x::int => y::int => unit;
+  let render
+      window::(window: Window.t)
+      mouseDown::(mouseDown: option mouseDownT)=?
+      mouseMove::(mouseMove: option (x::int => y::int => unit))=?
+      displayFunc::(displayFunc: float => unit)
+      () => {
+    switch mouseDown {
+    | None => ()
+    | Some cb =>
       Document.addEventListener
         window
         "mousedown"
@@ -92,18 +98,21 @@ let module Gl = {
           fun e => {
             let button =
               switch (getButton e) {
-              | 0 => LEFT_BUTTON
-              | 1 => MIDDLE_BUTTON
-              | 2 => RIGHT_BUTTON
+              | 0 => Events.LEFT_BUTTON
+              | 1 => Events.MIDDLE_BUTTON
+              | 2 => Events.RIGHT_BUTTON
               | _ => assert false
               };
-            let state = DOWN;
+            let state = Events.DOWN;
             let x = getClientX e;
             let y = getClientY e;
             cb button::button state::state x::x y::y
           }
-        );
-    let onMouseMove window::(window: Window.t) cb =>
+        )
+    };
+    switch mouseMove {
+    | None => ()
+    | Some cb =>
       Document.addEventListener
         window
         "mousemove"
@@ -113,11 +122,10 @@ let module Gl = {
             let y = getClientY e;
             cb x::x y::y
           }
-        );
-  };
-  let displayFunc window::window cb::cb => {
+        )
+    };
     let rec tick () => {
-      cb (Document.now ());
+      displayFunc (Document.now ());
       Document.requestAnimationFrame tick
     };
     Document.requestAnimationFrame tick
@@ -135,39 +143,63 @@ let module Gl = {
   type bufferT;
   type attributeT;
   type uniformT;
-  type boolT = Js.boolean;
-  let false_: boolT = Js.false_;
-  let true_: boolT = Js.true_;
   external createBuffer : context::contextT => bufferT = "createBuffer" [@@bs.send];
   external bindBuffer : context::contextT => target::int => buffer::bufferT => unit = "bindBuffer" [@@bs.send];
-  /* HACK */
+
+  /** Those types are what allows to come close to some form of ad-hoc polymorphism
+   *  See the Bucklescript manual:
+   *  https://bloomberg.github.io/bucklescript/Manual.html#_phantom_arguments_and_ad_hoc_polyrmophism
+   */
   type float32Array = array float;
   type uint16Array = array int;
   type dataKind =
     | Float32 float32Array
     | UInt16 uint16Array;
+
+  /** Those externals are used for bufferData to instantiate what gl.bufferData actually expects, because JS
+   *  doesn't differentiate between float and int but the GL backend needs to know the types precisely.
+   **/
+  external createFloat32Array : array float => 'float32Array = "Float32Array" [@@bs.new];
+  external createUint16Array : array int => 'uint16Array = "Uint16Array" [@@bs.new];
   external _bufferData : context::contextT => target::int => data::array 'a => usage::int => unit = "bufferData" [@@bs.send];
   let bufferData context::context target::target data::data usage::usage =>
     switch data {
-    | Float32 x => _bufferData context::context target::target data::x usage::usage
-    | UInt16 x => _bufferData context::context target::target data::x usage::usage
+    | Float32 x =>
+      _bufferData context::context target::target data::(createFloat32Array x) usage::usage
+    | UInt16 x =>
+      _bufferData context::context target::target data::(createUint16Array x) usage::usage
     };
   external viewport : context::contextT => x::int => y::int => width::int => height::int => unit = "viewport" [@@bs.send];
   external clear : context::contextT => mask::int => unit = "clear" [@@bs.send];
-  /* TODO: We'll need to do something about this */
-  external createFloat32Array : array float => float32Array = "Float32Array" [@@bs.new];
-  external createUint16Array : array int => uint16Array = "Uint16Array" [@@bs.new];
   external getUniformLocation : context::contextT => program::programT => name::string => uniformT = "getUniformLocation" [@@bs.send];
   external getAttribLocation : context::contextT => program::programT => name::string => attributeT = "getAttribLocation" [@@bs.send];
   external enableVertexAttribArray : context::contextT => attribute::attributeT => unit = "enableVertexAttribArray" [@@bs.send];
-  external vertexAttribPointer : context::contextT =>
-                                 attribute::attributeT =>
-                                 size::int =>
-                                 type_::int =>
-                                 normalize::boolT =>
-                                 stride::int =>
-                                 offset::int =>
-                                 unit = "vertexAttribPointer" [@@bs.send];
+  external _vertexAttribPointer : context::contextT =>
+                                  attribute::attributeT =>
+                                  size::int =>
+                                  type_::int =>
+                                  normalize::Js.boolean =>
+                                  stride::int =>
+                                  offset::int =>
+                                  unit = "vertexAttribPointer" [@@bs.send];
+  let vertexAttribPointer
+      context::context
+      attribute::attribute
+      size::size
+      type_::type_
+      normalize::normalize
+      stride::stride
+      offset::offset => {
+    let normalize = if normalize {Js.true_} else {Js.false_};
+    _vertexAttribPointer
+      context::context
+      attribute::attribute
+      size::size
+      type_::type_
+      normalize::normalize
+      stride::stride
+      offset::offset
+  };
   module type Mat4T = {
     type t;
     let to_array: t => array float;
@@ -205,11 +237,13 @@ let module Gl = {
                      far::float =>
                      unit = "mat4.ortho" [@@bs.val];
   };
-  external uniformMatrix4fv : context::contextT =>
-                              location::uniformT =>
-                              transpose::boolT =>
-                              value::Mat4.t =>
-                              unit = "uniformMatrix4fv" [@@bs.send];
+  external _uniformMatrix4fv : context::contextT =>
+                               location::uniformT =>
+                               transpose::Js.boolean =>
+                               value::Mat4.t =>
+                               unit = "uniformMatrix4fv" [@@bs.send];
+  let uniformMatrix4fv context::context location::location value::value =>
+    _uniformMatrix4fv context::context location::location transpose::Js.false_ value::value;
   /* Can return other value types as well, see https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/Types */
   type shaderParamsInternalT 'a =
     | Shader_delete_status_internal :shaderParamsInternalT bool
@@ -243,35 +277,44 @@ let module Gl = {
                                   paramName::int =>
                                   (programParamsInternalT 'a) [@bs.ignore] =>
                                   'a = "getProgramParameter" [@@bs.send];
-  type ret =
-    | Bool bool
-    | Int int;
   let getProgramParameter context::context program::program paramName::paramName =>
     switch paramName {
     | Program_delete_status =>
-      Bool (
+      if (
         _getProgramParameter
           context::context
           program::program
           paramName::(deleteStatus context::context)
           Program_delete_status_internal
-      )
+      ) {
+        1
+      } else {
+        0
+      }
     | Link_status =>
-      Bool (
+      if (
         _getProgramParameter
           context::context
           program::program
           paramName::(linkStatus context::context)
           Link_status_internal
-      )
+      ) {
+        1
+      } else {
+        0
+      }
     | Validate_status =>
-      Bool (
+      if (
         _getProgramParameter
           context::context
           program::program
           paramName::(validateStatus context::context)
           Validate_status_internal
-      )
+      ) {
+        1
+      } else {
+        0
+      }
     };
   external _getShaderParameter : context::contextT =>
                                  shader::shaderT =>
@@ -281,40 +324,36 @@ let module Gl = {
   let getShaderParameter context::context shader::shader paramName::paramName =>
     switch paramName {
     | Shader_delete_status =>
-      Bool (
+      if (
         _getShaderParameter
           context::context
           shader::shader
           paramName::(deleteStatus context::context)
           Shader_delete_status_internal
-      )
+      ) {
+        1
+      } else {
+        0
+      }
     | Compile_status =>
-      Bool (
+      if (
         _getShaderParameter
           context::context
           shader::shader
           paramName::(compileStatus context::context)
           Compile_status_internal
-      )
+      ) {
+        1
+      } else {
+        0
+      }
     | Shader_type =>
-      Int (
-        _getShaderParameter
-          context::context
-          shader::shader
-          paramName::(shaderType context::context)
-          Shader_type_internal
-      )
+      _getShaderParameter
+        context::context
+        shader::shader
+        paramName::(shaderType context::context)
+        Shader_type_internal
     };
-  /* let getShaderParameter context::context shader::shader paramName::(paramName : param 'a) : 'a =>
-     switch (paramName) {
-       | _ x => getShaderParameter context::context shader::shader paramName::x paramName
-     }; */
-  /* TODO: make a variant */
-  /* let getCompileStatus context::(context: contextT) shader::shader => (
-       getShaderParameter context::context shader::shader paramName::(compileStatus context::context)
-     );
-     let getLinkStatus context::(context: contextT) program::program =>
-       getProgramParameter context::context program::program paramName::(linkStatus context::context) == 1; */
   external getShaderInfoLog : context::contextT => shader::shaderT => string = "getShaderInfoLog" [@@bs.send];
   external getProgramInfoLog : context::contextT => program::programT => string = "getProgramInfoLog" [@@bs.send];
   external getShaderSource : context::contextT => shader::shaderT => string = "getShaderSource" [@@bs.send];
