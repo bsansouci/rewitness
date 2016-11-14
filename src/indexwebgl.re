@@ -1,3 +1,3 @@
-let module Game = Index2.Make Webgl.Gl;
+let module Game = Index.Make Webgl.Gl;
 
 Game.start ();
