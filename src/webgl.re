@@ -1,3 +1,7 @@
+/*
+ * vim: set ft=rust:
+ * vim: set ft=reason:
+ */
 let module Document = {
   type element;
   type window;
@@ -82,6 +86,8 @@ let module Gl = {
   };
   type mouseDownT =
     button::Events.buttonStateT => state::Events.stateT => x::int => y::int => unit;
+
+  /** See Gl.re for explanation. **/
   let render
       window::(window: Window.t)
       mouseDown::(mouseDown: option mouseDownT)=?
@@ -138,6 +144,7 @@ let module Gl = {
   external shaderSource : context::contextT => shader::shaderT => source::string => unit = "shaderSource" [@@bs.send];
   external compileShader : context::contextT => shader::shaderT => unit = "compileShader" [@@bs.send];
   external attachShader : context::contextT => program::programT => shader::shaderT => unit = "attachShader" [@@bs.send];
+  external deleteShader : context::contextT => shader::shaderT => unit = "deleteShader" [@@bs.send];
   external linkProgram : context::contextT => program::programT => unit = "linkProgram" [@@bs.send];
   external useProgram : context::contextT => program::programT => unit = "useProgram" [@@bs.send];
   type bufferT;
@@ -204,7 +211,6 @@ let module Gl = {
     type t;
     let to_array: t => array float;
     let create: unit => t;
-    /* let perspective: out::t => fovy::int => aspect::float => near::float => far::float => unit; */
     let identity: out::t => unit;
     let translate: out::t => matrix::t => vec::array float => unit;
     let scale: out::t => matrix::t => vec::array float => unit;
@@ -223,7 +229,6 @@ let module Gl = {
     type t = array float;
     let to_array a => a;
     external create : unit => t = "mat4.create" [@@bs.val];
-    /* external perspective : out::t => fovy::int => aspect::float => near::float => far::float => unit = "mat4.perspective" [@@bs.val]; */
     external identity : out::t => unit = "mat4.identity" [@@bs.val];
     external translate : out::t => matrix::t => vec::array float => unit = "mat4.translate" [@@bs.val];
     external scale : out::t => matrix::t => vec::array float => unit = "mat4.scale" [@@bs.val];

@@ -1,3 +1,7 @@
+/*
+ * vim: set ft=rust:
+ * vim: set ft=reason:
+ */
 module type t = {
   let target: string;
   type contextT;
@@ -41,6 +45,7 @@ module type t = {
   let createProgram: context::contextT => programT;
   let createShader: context::contextT => shaderType::int => shaderT;
   let attachShader: context::contextT => program::programT => shader::shaderT => unit;
+  let deleteShader: context::contextT => shader::shaderT => unit;
   let shaderSource: context::contextT => shader::shaderT => source::string => unit;
   let compileShader: context::contextT => shader::shaderT => unit;
   let linkProgram: context::contextT => program::programT => unit;
@@ -58,7 +63,6 @@ module type t = {
   let bufferData: context::contextT => target::int => data::dataKind => usage::int => unit;
   let viewport: context::contextT => x::int => y::int => width::int => height::int => unit;
   let clear: context::contextT => mask::int => unit;
-  /* TODO: We'll need to do something about this */
   let getUniformLocation: context::contextT => program::programT => name::string => uniformT;
   let getAttribLocation: context::contextT => program::programT => name::string => attributeT;
   let enableVertexAttribArray: context::contextT => attribute::attributeT => unit;

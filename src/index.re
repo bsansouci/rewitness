@@ -2,6 +2,12 @@
  * vim: set ft=rust:
  * vim: set ft=reason:
  */
+
+/**
+ * Main functor which takes an implementation of the Gl interface defined in Gl.re.
+ * Gl.re is a general enough interface to work on both web and native so far.
+ * Scroll down to `drawPackageT` to read a more detailed description of how the rendering happens.
+ */
 let module Make (Gl: Gl.t) => {
   /* Setting up the Gl utils functions */
   type glCamera = {projectionMatrix: Gl.Mat4.t, modelViewMatrix: Gl.Mat4.t};
@@ -37,23 +43,23 @@ let module Make (Gl: Gl.t) => {
       vertexShader::vertexShaderSource
       fragmentShader::fragmentShaderSource
       :option Gl.programT => {
-    let vertex_shader = Gl.createShader env.gl Constants.vertex_shader;
-    Gl.shaderSource env.gl vertex_shader vertexShaderSource;
-    Gl.compileShader env.gl vertex_shader;
+    let vertexShader = Gl.createShader env.gl Constants.vertex_shader;
+    Gl.shaderSource env.gl vertexShader vertexShaderSource;
+    Gl.compileShader env.gl vertexShader;
     let compiledCorrectly =
-      Gl.getShaderParameter context::env.gl shader::vertex_shader paramName::Gl.Compile_status == 1;
+      Gl.getShaderParameter context::env.gl shader::vertexShader paramName::Gl.Compile_status == 1;
     if compiledCorrectly {
-      let fragment_shader = Gl.createShader env.gl Constants.fragment_shader;
-      Gl.shaderSource env.gl fragment_shader fragmentShaderSource;
-      Gl.compileShader env.gl fragment_shader;
+      let fragmentShader = Gl.createShader env.gl Constants.fragment_shader;
+      Gl.shaderSource env.gl fragmentShader fragmentShaderSource;
+      Gl.compileShader env.gl fragmentShader;
       let compiledCorrectly =
-        Gl.getShaderParameter context::env.gl shader::fragment_shader paramName::Gl.Compile_status == 1;
+        Gl.getShaderParameter context::env.gl shader::fragmentShader paramName::Gl.Compile_status == 1;
       if compiledCorrectly {
         let program = Gl.createProgram env.gl;
-        Gl.attachShader context::env.gl program::program shader::vertex_shader;
-        /* Gl.deleteShader */
-        Gl.attachShader context::env.gl program::program shader::fragment_shader;
-        /* Gl.deleteShader */
+        Gl.attachShader context::env.gl program::program shader::vertexShader;
+        Gl.deleteShader context::env.gl shader::vertexShader;
+        Gl.attachShader context::env.gl program::program shader::fragmentShader;
+        Gl.deleteShader context::env.gl shader::fragmentShader;
         Gl.linkProgram env.gl program;
         let linkedCorrectly =
           Gl.getProgramParameter context::env.gl program::program paramName::Gl.Link_status == 1;
@@ -66,12 +72,12 @@ let module Make (Gl: Gl.t) => {
         }
       } else {
         print_endline @@
-        "Fragment shader error: " ^ Gl.getShaderInfoLog context::env.gl shader::fragment_shader;
+        "Fragment shader error: " ^ Gl.getShaderInfoLog context::env.gl shader::fragmentShader;
         None
       }
     } else {
       print_endline @@
-      "Vertex shader error: " ^ Gl.getShaderInfoLog context::env.gl shader::vertex_shader;
+      "Vertex shader error: " ^ Gl.getShaderInfoLog context::env.gl shader::vertexShader;
       None
     }
   };
@@ -110,6 +116,31 @@ let module Make (Gl: Gl.t) => {
     let brown = (0.28, 0.21, 0.02);
     let grey = (0.27, 0.3, 0.32);
   };
+
+  /**
+   * This module helps us define the maze.
+   * b -> bottom
+   * l -> left
+   * t -> top
+   * r -> right
+   *
+   * bl -> bottom left
+   *
+   *   --
+   *    |
+   *
+   * br -> bottom right
+   *
+   *    --
+   *   |
+   *
+   * lt -> left top
+   *
+   *     |
+   *   --
+   *
+   * etc...
+   */
   let module B = {
     let b = {bottom: true, left: false, top: false, right: false};
     let l = {bottom: false, left: true, top: false, right: false};
@@ -156,6 +187,155 @@ let module Make (Gl: Gl.t) => {
     } else {
       shader
     };
+
+  /**
+   * `drawPackage` is defined as a dumb way to package everything needed to render simple shapes in OpenGL.
+   * It contains the projection matrix, the model view matrix, all the attributes and uniforms for the
+   * shaders and the buffers needed (vertex and color).
+   *
+   * Here's a rundown of what everything means just so you can understand the code:
+   * - shaders are scripts that are compiled, linked and ran on the GPU. They have a set of inputs (
+   *   "attribute"s and "uniform"s) and outputs (like "varying" in the vertex shader or predefined ones like
+   *   "gl_Position" and "gl_FragColor"). There are two kinds of shaders: vertex shaders and fragment shaders.
+   *   Vertex shaders are basically a function that gets called on every vertex that you send to the graphics
+   *   card. Fragment shaders are basically called on every pixel of the shape generated after running the
+   *   vertex shader. This game uses the two most simple shaders, a vertex shader that set the gl_Position of
+   *   every vertex and a fragment shader which set the gl_FragColor (its color) of the pixel.
+   *   We pass down the vertex position and color through to the vertex shader through a thing called an
+   *   "attribute". Then the color is piped to the fragment shader (and not used in the vertex shader), which
+   *   will set the pixel color.
+   *   You'd use a vertex shader to move your geometry around (we "move" it by translating it to screen
+   *   coordinates) and distort it. You'd use a fragment shader to change the pixel colors, for a tint effect
+   *   for example.
+   *   A "uniform" is basically a global constant across vertices or pixels. Here it's the projection matrix
+   *   and the model view matrix
+   *
+   * - the projection matrix is a matrix that is passed to the vertex shader which represents a
+   *   transformation from a 3D space to a 2D space (ie: from the game world to our screen). For an already
+   *   2D game, we simply use a matrix called "Orthogonal". Here's a great picture to discribe it
+   *   https://shearer12345.github.io/graphics/assets/projectionPerspectiveVSOrthographic.png
+   *
+   * - don't worry about the model view matrix (read: I'm not sure why it's there).
+   *
+   * - the "buffer"s are basically space on the GPU's memory, which is where we actually store the data of
+   *   the points.
+   */
+  type drawPackageT = {
+    env: glEnv,
+    vertexBuffer: Gl.bufferT,
+    colorBuffer: Gl.bufferT,
+    aVertexPosition: Gl.attributeT,
+    aVertexColor: Gl.attributeT,
+    pMatrixUniform: Gl.uniformT,
+    mvMatrixUniform: Gl.uniformT
+  };
+  let drawRect
+      drawPackage::{
+        env: {gl, camera},
+        vertexBuffer,
+        colorBuffer,
+        aVertexPosition,
+        aVertexColor,
+        pMatrixUniform,
+        mvMatrixUniform
+      }
+      width::width
+      height::height
+      color::(r, g, b)
+      position::(GCoord {x, y}) => {
+    resetCamera camera;
+
+    /** Setup vertices to be sent to the GPU **/
+    let square_vertices = [|
+      float_of_int @@ x + width,
+      float_of_int @@ y + height,
+      0.0,
+      float_of_int x,
+      float_of_int @@ y + height,
+      0.0,
+      float_of_int @@ x + width,
+      float_of_int y,
+      0.0,
+      float_of_int x,
+      float_of_int y,
+      0.0
+    |];
+    Gl.bindBuffer context::gl target::Constants.array_buffer buffer::vertexBuffer;
+    Gl.bufferData
+      context::gl
+      target::Constants.array_buffer
+      data::(Gl.Float32 square_vertices)
+      usage::Constants.static_draw;
+    Gl.vertexAttribPointer gl aVertexPosition 3 Constants.float_ false 0 0;
+
+    /** Setup colors to be sent to the GPU **/
+    let square_colors = ref [];
+    for i in 0 to 3 {
+      square_colors := [r, g, b, 1., ...!square_colors]
+    };
+    Gl.bindBuffer context::gl target::Constants.array_buffer buffer::colorBuffer;
+    Gl.bufferData
+      context::gl
+      target::Constants.array_buffer
+      data::(Gl.Float32 (Array.of_list !square_colors))
+      usage::Constants.static_draw;
+    Gl.vertexAttribPointer gl aVertexColor 4 Constants.float_ false 0 0;
+    Gl.uniformMatrix4fv gl pMatrixUniform camera.projectionMatrix;
+    Gl.uniformMatrix4fv gl mvMatrixUniform camera.modelViewMatrix;
+    Gl.drawArrays gl Constants.triangle_strip 0 4
+  };
+  let drawCircle
+      drawPackage::{
+        env: {gl, camera},
+        vertexBuffer,
+        colorBuffer,
+        aVertexPosition,
+        aVertexColor,
+        pMatrixUniform,
+        mvMatrixUniform
+      }
+      radius::radius
+      color::(r, g, b)
+      position::(GCoord {x, y}) => {
+    resetCamera camera;
+
+    /** Instantiate a list of points for the circle and bind to the circleBuffer. **/
+    let circle_vertex = ref [];
+    for i in 0 to 360 {
+      let deg2grad = 3.14159 /. 180.;
+      let degInGrad = float_of_int i *. deg2grad;
+      let floatRadius = float_of_int radius;
+      circle_vertex := [
+        cos degInGrad *. floatRadius +. float_of_int x,
+        sin degInGrad *. floatRadius +. float_of_int y,
+        0.,
+        ...!circle_vertex
+      ]
+    };
+    Gl.bindBuffer gl Constants.array_buffer vertexBuffer;
+    Gl.bufferData
+      context::gl
+      target::Constants.array_buffer
+      data::(Gl.Float32 (Array.of_list !circle_vertex))
+      usage::Constants.static_draw;
+    Gl.vertexAttribPointer gl aVertexPosition 3 Constants.float_ false 0 0;
+
+    /** Instantiate color array **/
+    let circle_colors = ref [];
+    for i in 0 to 360 {
+      circle_colors := [r, g, b, 1., ...!circle_colors]
+    };
+    Gl.bindBuffer gl Constants.array_buffer colorBuffer;
+    Gl.bufferData
+      context::gl
+      target::Constants.array_buffer
+      data::(Gl.Float32 (Array.of_list !circle_colors))
+      usage::Constants.static_draw;
+    Gl.vertexAttribPointer gl aVertexColor 4 Constants.float_ false 0 0;
+    Gl.uniformMatrix4fv gl pMatrixUniform camera.projectionMatrix;
+    Gl.uniformMatrix4fv gl mvMatrixUniform camera.modelViewMatrix;
+    Gl.drawArrays gl Constants.triangle_fan 0 360
+  };
   let vertexShaderSource =
     preprocess
       Gl.target
@@ -194,10 +374,10 @@ let module Make (Gl: Gl.t) => {
       | Some program => program
       };
     Gl.useProgram env.gl program;
-    let positionAttrib = Gl.getAttribLocation env.gl program "aVertexPosition";
-    Gl.enableVertexAttribArray env.gl positionAttrib;
-    let colorAttrib = Gl.getAttribLocation env.gl program "aVertexColor";
-    Gl.enableVertexAttribArray env.gl colorAttrib;
+    let aVertexPosition = Gl.getAttribLocation env.gl program "aVertexPosition";
+    Gl.enableVertexAttribArray env.gl aVertexPosition;
+    let aVertexColor = Gl.getAttribLocation env.gl program "aVertexColor";
+    Gl.enableVertexAttribArray env.gl aVertexColor;
     let pMatrixUniform = Gl.getUniformLocation env.gl program "uPMatrix";
     Gl.uniformMatrix4fv
       context::env.gl location::pMatrixUniform value::env.camera.projectionMatrix;
@@ -206,109 +386,21 @@ let module Make (Gl: Gl.t) => {
       context::env.gl location::mvMatrixUniform value::env.camera.modelViewMatrix;
     setProjection env.window env.camera;
 
-    /** We define the drawRect and drawCircle here so we can capture in their closure the following variables
-     *  env, positionAttrib, pMatrixUniform, mvMatrixUniform.
-     *  I'm not sure what the easiest way is to keep the attributes defined in the string shader and the
-     *  "pointers" to those that we get with `getAttribLocation`.
-     *
-     */
-    let drawRect
-        vertexBuffer::vertexBuffer
-        colorBuffer::colorBuffer
-        width::width
-        height::height
-        color::(r, g, b)
-        position::(GCoord {x, y}) => {
-      resetCamera env.camera;
-
-      /** Setup vertices to be sent to the GPU **/
-      let square_vertices = [|
-        float_of_int @@ x + width,
-        float_of_int @@ y + height,
-        0.0,
-        float_of_int x,
-        float_of_int @@ y + height,
-        0.0,
-        float_of_int @@ x + width,
-        float_of_int y,
-        0.0,
-        float_of_int x,
-        float_of_int y,
-        0.0
-      |];
-      Gl.bindBuffer context::env.gl target::Constants.array_buffer buffer::vertexBuffer;
-      Gl.bufferData
-        context::env.gl
-        target::Constants.array_buffer
-        data::(Gl.Float32 square_vertices)
-        usage::Constants.static_draw;
-      Gl.vertexAttribPointer env.gl positionAttrib 3 Constants.float_ false 0 0;
-
-      /** Setup colors to be sent to the GPU **/
-      let square_colors = ref [];
-      for i in 0 to 3 {
-        square_colors := [r, g, b, 1., ...!square_colors]
-      };
-      Gl.bindBuffer context::env.gl target::Constants.array_buffer buffer::colorBuffer;
-      Gl.bufferData
-        context::env.gl
-        target::Constants.array_buffer
-        data::(Gl.Float32 (Array.of_list !square_colors))
-        usage::Constants.static_draw;
-      Gl.vertexAttribPointer env.gl colorAttrib 4 Constants.float_ false 0 0;
-      Gl.uniformMatrix4fv env.gl pMatrixUniform env.camera.projectionMatrix;
-      Gl.uniformMatrix4fv env.gl mvMatrixUniform env.camera.modelViewMatrix;
-      Gl.drawArrays env.gl Constants.triangle_strip 0 4
+    /** Create the drawPackage **/
+    let drawPackage = {
+      env,
+      vertexBuffer: Gl.createBuffer env.gl,
+      colorBuffer: Gl.createBuffer env.gl,
+      aVertexPosition,
+      aVertexColor,
+      pMatrixUniform,
+      mvMatrixUniform
     };
-    let drawCircle
-        vertexBuffer::vertexBuffer
-        colorBuffer::colorBuffer
-        radius::radius
-        color::(r, g, b)
-        position::(GCoord {x, y}) => {
-      resetCamera env.camera;
+    /* Curry the drawing functions because we don't care about using them in a different context anyway */
+    let myDrawRect = drawRect drawPackage::drawPackage;
+    let myDrawCircle = drawCircle drawPackage::drawPackage;
 
-      /** Instantiate a list of points for the circle and bind to the circleBuffer. **/
-      let circle_vertex = ref [];
-      for i in 0 to 360 {
-        let deg2grad = 3.14159 /. 180.;
-        let degInGrad = float_of_int i *. deg2grad;
-        let floatRadius = float_of_int radius;
-        circle_vertex := [
-          cos degInGrad *. floatRadius +. float_of_int x,
-          sin degInGrad *. floatRadius +. float_of_int y,
-          0.,
-          ...!circle_vertex
-        ]
-      };
-      Gl.bindBuffer env.gl Constants.array_buffer vertexBuffer;
-      Gl.bufferData
-        context::env.gl
-        target::Constants.array_buffer
-        data::(Gl.Float32 (Array.of_list !circle_vertex))
-        usage::Constants.static_draw;
-      Gl.vertexAttribPointer env.gl positionAttrib 3 Constants.float_ false 0 0;
-
-      /** Instantiate color array **/
-      let circle_colors = ref [];
-      for i in 0 to 360 {
-        circle_colors := [r, g, b, 1., ...!circle_colors]
-      };
-      Gl.bindBuffer env.gl Constants.array_buffer colorBuffer;
-      Gl.bufferData
-        context::env.gl
-        target::Constants.array_buffer
-        data::(Gl.Float32 (Array.of_list !circle_colors))
-        usage::Constants.static_draw;
-      Gl.vertexAttribPointer env.gl colorAttrib 4 Constants.float_ false 0 0;
-      Gl.uniformMatrix4fv env.gl pMatrixUniform env.camera.projectionMatrix;
-      Gl.uniformMatrix4fv env.gl mvMatrixUniform env.camera.modelViewMatrix;
-      Gl.drawArrays env.gl Constants.triangle_fan 0 360
-    };
-    let myDrawRect =
-      drawRect vertexBuffer::(Gl.createBuffer env.gl) colorBuffer::(Gl.createBuffer env.gl);
-    let myDrawCircle =
-      drawCircle vertexBuffer::(Gl.createBuffer env.gl) colorBuffer::(Gl.createBuffer env.gl);
+    /** Bunch of utils function for the game logic **/
     let centerPoint puzzleSize::puzzleSize position::(GCoord {x, y}) =>
       GCoord {
         x: x + windowSize / 2 - puzzleSize * 3 * lineWeight / 2,
@@ -317,79 +409,6 @@ let module Make (Gl: Gl.t) => {
     let toGameCoord (PCoord {x, y}) => GCoord {x: x * 3 * lineWeight, y: y * 3 * lineWeight};
     let getTileCenter (GCoord {x, y}) =>
       GCoord {x: x + 3 * lineWeight / 2, y: y + 3 * lineWeight / 2};
-    let drawCell tile::{bottom, left, top, right} color::color position::(GCoord {x, y}) => {
-      let numOfSides = ref 0;
-      if bottom {
-        myDrawRect
-          width::lineWeight
-          height::(2 * lineWeight - lineWeight / 2)
-          color::color
-          position::(GCoord {x: x + lineWeight, y});
-        numOfSides := !numOfSides + 1
-      };
-      if left {
-        myDrawRect
-          width::(2 * lineWeight - lineWeight / 2)
-          height::lineWeight
-          color::color
-          position::(GCoord {x, y: y + lineWeight});
-        numOfSides := !numOfSides + 1
-      };
-      if top {
-        myDrawRect
-          width::lineWeight
-          height::(2 * lineWeight - lineWeight / 2)
-          color::color
-          position::(GCoord {x: x + lineWeight, y: y + lineWeight + lineWeight / 2});
-        numOfSides := !numOfSides + 1
-      };
-      if right {
-        myDrawRect
-          width::(2 * lineWeight - lineWeight / 2)
-          height::lineWeight
-          color::color
-          position::(GCoord {x: x + lineWeight + lineWeight / 2, y: y + lineWeight});
-        numOfSides := !numOfSides + 1
-      };
-      if (!numOfSides >= 2) {
-        myDrawCircle
-          radius::(lineWeight / 2) color::color position::(getTileCenter (GCoord {x, y}))
-      } else {
-        let GCoord tileCenter = getTileCenter (GCoord {x, y});
-        myDrawRect
-          width::lineWeight
-          height::lineWeight
-          color::color
-          position::(GCoord {x: tileCenter.x - lineWeight / 2, y: tileCenter.y - lineWeight / 2})
-      }
-    };
-    let drawPuzzle puzzle::puzzle => {
-      let puzzleSize = List.length puzzle.grid;
-      List.iteri
-        (
-          fun y row =>
-            List.iteri
-              (
-                fun x tile =>
-                  drawCell
-                    tile::tile
-                    color::Color.brown
-                    position::(
-                      centerPoint puzzleSize::puzzleSize position::(toGameCoord (PCoord {x, y}))
-                    )
-              )
-              row
-        )
-        (List.rev puzzle.grid);
-      myDrawCircle
-        radius::lineWeight
-        color::Color.brown
-        position::(
-          getTileCenter (
-            centerPoint puzzleSize::puzzleSize position::(toGameCoord puzzle.startTile)
-          )
-        )
-    };
     let getTileSide puzzle::puzzle tile::tile position::(GCoord {x: px, y: py}) => {
       let puzzleSize = List.length puzzle.grid;
       let GCoord {x: tx, y: ty} = getTileCenter (
@@ -407,94 +426,6 @@ let module Make (Gl: Gl.t) => {
         Right
       } else {
         Center
-      }
-    };
-
-    /** Draw the tip of the line if any. Just the tip. **/
-    let drawTip puzzle::puzzle prevTile::maybePrevTile curTile::curTile lineEdge::(GCoord lineEdge) => {
-      let puzzleSize = List.length puzzle.grid;
-      let lineEdgeTileSide = getTileSide puzzle::puzzle tile::curTile position::(GCoord lineEdge);
-      let GCoord tileCenter = getTileCenter (
-        centerPoint puzzleSize::puzzleSize position::(toGameCoord curTile.position)
-      );
-      let drawSomething () =>
-        switch lineEdgeTileSide {
-        | Bottom =>
-          myDrawRect
-            width::lineWeight
-            height::(tileCenter.y - lineEdge.y)
-            color::Color.brightYellow
-            position::(GCoord {x: tileCenter.x - lineWeight / 2, y: lineEdge.y})
-        | Left =>
-          myDrawRect
-            width::(tileCenter.x - lineEdge.x)
-            height::lineWeight
-            color::Color.brightYellow
-            position::(GCoord {x: lineEdge.x, y: tileCenter.y - lineWeight / 2})
-        | Top =>
-          myDrawRect
-            width::lineWeight
-            height::(lineEdge.y - tileCenter.y)
-            color::Color.brightYellow
-            position::(GCoord {x: tileCenter.x - lineWeight / 2, y: tileCenter.y})
-        | Right =>
-          myDrawRect
-            width::(lineEdge.x - tileCenter.x)
-            height::lineWeight
-            color::Color.brightYellow
-            position::(GCoord {x: tileCenter.x, y: tileCenter.y - lineWeight / 2})
-        | Center => ()
-        };
-      switch maybePrevTile {
-      | None => drawSomething ()
-      | Some prevTile =>
-        let prevTileSide =
-          getTileSide
-            puzzle::puzzle
-            tile::curTile
-            position::(
-              getTileCenter (
-                centerPoint puzzleSize::puzzleSize position::(toGameCoord prevTile.position)
-              )
-            );
-        let distanceFromEdge = 3 * lineWeight / 2;
-        switch prevTileSide {
-        | Top =>
-          myDrawRect
-            width::lineWeight
-            height::(tileCenter.y + distanceFromEdge - lineEdge.y)
-            color::Color.brightYellow
-            position::(GCoord {x: tileCenter.x - lineWeight / 2, y: lineEdge.y})
-        | Right =>
-          myDrawRect
-            width::(tileCenter.x + distanceFromEdge - lineEdge.x)
-            height::lineWeight
-            color::Color.brightYellow
-            position::(GCoord {x: lineEdge.x, y: tileCenter.y - lineWeight / 2})
-        | Bottom =>
-          myDrawRect
-            width::lineWeight
-            height::(lineEdge.y - (tileCenter.y - distanceFromEdge))
-            color::Color.brightYellow
-            position::(
-              GCoord {x: tileCenter.x - lineWeight / 2, y: tileCenter.y - distanceFromEdge}
-            )
-        | Left =>
-          myDrawRect
-            width::(lineEdge.x - (tileCenter.x - distanceFromEdge))
-            height::lineWeight
-            color::Color.brightYellow
-            position::(
-              GCoord {x: tileCenter.x - distanceFromEdge, y: tileCenter.y - lineWeight / 2}
-            )
-        | Center => assert false
-        };
-        /* This means we're moving away from the center */
-        if (prevTileSide != lineEdgeTileSide) {
-          drawSomething ();
-          myDrawCircle
-            radius::(lineWeight / 2) color::Color.brightYellow position::(GCoord tileCenter)
-        }
       }
     };
     let maybeToTilePoint puzzle::puzzle position::(GCoord {x, y}) => {
@@ -698,6 +629,173 @@ let module Make (Gl: Gl.t) => {
         }
       }
     };
+
+    /** Drawing functions... Draw cell draws one of the cells of the grid of the maze. **/
+    let drawCell tile::{bottom, left, top, right} color::color position::(GCoord {x, y}) => {
+      let numOfSides = ref 0;
+      if bottom {
+        myDrawRect
+          width::lineWeight
+          height::(2 * lineWeight - lineWeight / 2)
+          color::color
+          position::(GCoord {x: x + lineWeight, y});
+        numOfSides := !numOfSides + 1
+      };
+      if left {
+        myDrawRect
+          width::(2 * lineWeight - lineWeight / 2)
+          height::lineWeight
+          color::color
+          position::(GCoord {x, y: y + lineWeight});
+        numOfSides := !numOfSides + 1
+      };
+      if top {
+        myDrawRect
+          width::lineWeight
+          height::(2 * lineWeight - lineWeight / 2)
+          color::color
+          position::(GCoord {x: x + lineWeight, y: y + lineWeight + lineWeight / 2});
+        numOfSides := !numOfSides + 1
+      };
+      if right {
+        myDrawRect
+          width::(2 * lineWeight - lineWeight / 2)
+          height::lineWeight
+          color::color
+          position::(GCoord {x: x + lineWeight + lineWeight / 2, y: y + lineWeight});
+        numOfSides := !numOfSides + 1
+      };
+      if (!numOfSides >= 2) {
+        myDrawCircle
+          radius::(lineWeight / 2) color::color position::(getTileCenter (GCoord {x, y}))
+      } else {
+        let GCoord tileCenter = getTileCenter (GCoord {x, y});
+        myDrawRect
+          width::lineWeight
+          height::lineWeight
+          color::color
+          position::(GCoord {x: tileCenter.x - lineWeight / 2, y: tileCenter.y - lineWeight / 2})
+      }
+    };
+
+    /** This is the main loop that draws every cell. **/
+    let drawPuzzle puzzle::puzzle => {
+      let puzzleSize = List.length puzzle.grid;
+      List.iteri
+        (
+          fun y row =>
+            List.iteri
+              (
+                fun x tile =>
+                  drawCell
+                    tile::tile
+                    color::Color.brown
+                    position::(
+                      centerPoint puzzleSize::puzzleSize position::(toGameCoord (PCoord {x, y}))
+                    )
+              )
+              row
+        )
+        (List.rev puzzle.grid);
+      myDrawCircle
+        radius::lineWeight
+        color::Color.brown
+        position::(
+          getTileCenter (
+            centerPoint puzzleSize::puzzleSize position::(toGameCoord puzzle.startTile)
+          )
+        )
+    };
+
+    /** Draw the tip of the line if any. Just the tip. **/
+    let drawTip puzzle::puzzle prevTile::maybePrevTile curTile::curTile lineEdge::(GCoord lineEdge) => {
+      let puzzleSize = List.length puzzle.grid;
+      let lineEdgeTileSide = getTileSide puzzle::puzzle tile::curTile position::(GCoord lineEdge);
+      let GCoord tileCenter = getTileCenter (
+        centerPoint puzzleSize::puzzleSize position::(toGameCoord curTile.position)
+      );
+      let drawSomething () =>
+        switch lineEdgeTileSide {
+        | Bottom =>
+          myDrawRect
+            width::lineWeight
+            height::(tileCenter.y - lineEdge.y)
+            color::Color.brightYellow
+            position::(GCoord {x: tileCenter.x - lineWeight / 2, y: lineEdge.y})
+        | Left =>
+          myDrawRect
+            width::(tileCenter.x - lineEdge.x)
+            height::lineWeight
+            color::Color.brightYellow
+            position::(GCoord {x: lineEdge.x, y: tileCenter.y - lineWeight / 2})
+        | Top =>
+          myDrawRect
+            width::lineWeight
+            height::(lineEdge.y - tileCenter.y)
+            color::Color.brightYellow
+            position::(GCoord {x: tileCenter.x - lineWeight / 2, y: tileCenter.y})
+        | Right =>
+          myDrawRect
+            width::(lineEdge.x - tileCenter.x)
+            height::lineWeight
+            color::Color.brightYellow
+            position::(GCoord {x: tileCenter.x, y: tileCenter.y - lineWeight / 2})
+        | Center => ()
+        };
+      switch maybePrevTile {
+      | None => drawSomething ()
+      | Some prevTile =>
+        let prevTileSide =
+          getTileSide
+            puzzle::puzzle
+            tile::curTile
+            position::(
+              getTileCenter (
+                centerPoint puzzleSize::puzzleSize position::(toGameCoord prevTile.position)
+              )
+            );
+        let distanceFromEdge = 3 * lineWeight / 2;
+        switch prevTileSide {
+        | Top =>
+          myDrawRect
+            width::lineWeight
+            height::(tileCenter.y + distanceFromEdge - lineEdge.y)
+            color::Color.brightYellow
+            position::(GCoord {x: tileCenter.x - lineWeight / 2, y: lineEdge.y})
+        | Right =>
+          myDrawRect
+            width::(tileCenter.x + distanceFromEdge - lineEdge.x)
+            height::lineWeight
+            color::Color.brightYellow
+            position::(GCoord {x: lineEdge.x, y: tileCenter.y - lineWeight / 2})
+        | Bottom =>
+          myDrawRect
+            width::lineWeight
+            height::(lineEdge.y - (tileCenter.y - distanceFromEdge))
+            color::Color.brightYellow
+            position::(
+              GCoord {x: tileCenter.x - lineWeight / 2, y: tileCenter.y - distanceFromEdge}
+            )
+        | Left =>
+          myDrawRect
+            width::(lineEdge.x - (tileCenter.x - distanceFromEdge))
+            height::lineWeight
+            color::Color.brightYellow
+            position::(
+              GCoord {x: tileCenter.x - distanceFromEdge, y: tileCenter.y - lineWeight / 2}
+            )
+        | Center => assert false
+        };
+        /* This means we're moving away from the center */
+        if (prevTileSide != lineEdgeTileSide) {
+          drawSomething ();
+          myDrawCircle
+            radius::(lineWeight / 2) color::Color.brightYellow position::(GCoord tileCenter)
+        }
+      }
+    };
+
+    /** Event handlers for click and move. **/
     let didClickOnStartTile puzzle::puzzle mousePos::mousePos => {
       let puzzleSize = List.length puzzle.grid;
       let circleCenter = getTileCenter (
@@ -796,8 +894,8 @@ let module Make (Gl: Gl.t) => {
       loop 10
     };
 
-    /** Main render function.
-     *  It'll render the whole maze and the line being drawn.
+    /**
+     * Main render function.
      */
     let render puzzle::puzzle gameState::gameState time => {
       Gl.clear env.gl (Constants.color_buffer_bit lor Constants.depth_buffer_bit);
@@ -872,12 +970,17 @@ let module Make (Gl: Gl.t) => {
       }
     };
     let gameState = {currentPath: [], lineEdge: None};
-    let puzzle = examplePuzzle;
+
+    /**
+     * Main entry point to the Gl module.
+     * This is what starts the rendering loop and the event loop.
+     * In the native case they are both synchronous and synchronized. In the web case, they're both async.
+     */
     Gl.render
       window::window
-      mouseDown::(onMouseDown puzzle::puzzle gameState::gameState)
-      mouseMove::(onMouseMove puzzle::puzzle gameState::gameState)
-      displayFunc::(render puzzle::puzzle gameState::gameState)
+      mouseDown::(onMouseDown puzzle::examplePuzzle gameState::gameState)
+      mouseMove::(onMouseMove puzzle::examplePuzzle gameState::gameState)
+      displayFunc::(render puzzle::examplePuzzle gameState::gameState)
       ()
   };
 };

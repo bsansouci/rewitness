@@ -1,3 +1,7 @@
+/*
+ * vim: set ft=rust:
+ * vim: set ft=reason:
+ */
 open Tsdl;
 
 open Tgl3;
@@ -50,6 +54,11 @@ let module Gl = {
       let (_, height) = Sdl.get_window_size window;
       height
     };
+
+    /**
+     * We create an OpenGL context at 2.1 because... it seems to be the only one that we can request that
+     * osx will give us and one that has an API comparable to OpenGL ES 2.0 which is what WebGL uses.
+     */
     let init argv::_ =>
       switch (
         Sdl.init Sdl.Init.video >>= (fun () => create_window gl::(2, 1) >>= (fun win => Ok win))
@@ -90,6 +99,8 @@ let module Gl = {
   };
   type mouseDownT =
     button::Events.buttonStateT => state::Events.stateT => x::int => y::int => unit;
+
+  /** See Gl.re for explanation. **/
   let render
       window::(window: Window.t)
       mouseDown::(mouseDown: option mouseDownT)=?
@@ -158,6 +169,7 @@ let module Gl = {
   let createShader context::(context: contextT) shaderType::shaderType :shaderT => Gl.create_shader shaderType;
   let attachShader context::context program::program shader::shader =>
     Gl.attach_shader program shader;
+  let deleteShader context::context shader::shader => Gl.delete_shader shader;
   let shaderSource context::context shader::shader source::source =>
     Gl.shader_source shader source;
   let compileShader context::context shader::shader => Gl.compile_shader shader;
@@ -222,7 +234,6 @@ let module Gl = {
     type t;
     let to_array: t => array float;
     let create: unit => t;
-    /* let perspective: out::t => fovy::int => aspect::float => near::float => far::float => unit; */
     let identity: out::t => unit;
     let translate: out::t => matrix::t => vec::array float => unit;
     let scale: out::t => matrix::t => vec::array float => unit;
@@ -259,7 +270,6 @@ let module Gl = {
       0.0,
       1.0
     |];
-    /* let perspective out::(out: t) fovy::int aspect::float near::float far::float => (); */
     let identity out::(out: t) => {
       out.(0) = 1.0;
       out.(1) = 0.0;
@@ -436,6 +446,10 @@ let module Gl = {
     | Program_delete_status
     | Link_status
     | Validate_status;
+
+  /**
+   * We use Bigarray here as some sort of pointer.
+   */
   let _getProgramParameter = {
     let a = Bigarray.Array1.create Bigarray.int32 Bigarray.c_layout 1;
     fun context::(context: contextT) program::(program: programT) paramName::paramName => {
@@ -482,7 +496,13 @@ let module Gl = {
     Gl.get_program_info_log program len None logData;
     Gl.string_of_bigarray logData
   };
-  let getShaderSource context::(context: contextT) shader::(shader: shaderT) => "";
+  let getShaderSource context::(context: contextT) shader::(shader: shaderT) => {
+    let len =
+      _getShaderParameter context::context shader::shader paramName::Gl.shader_source_length;
+    let logData = Bigarray.Array1.create Bigarray.Char Bigarray.c_layout len;
+    Gl.get_shader_source shader len None logData;
+    Gl.string_of_bigarray logData
+  };
   let drawArrays context::(context: contextT) mode::mode first::first count::count =>
     Gl.draw_arrays mode first count;
   let drawElements context::(context: contextT) mode::mode count::count type_::type_ offset::offset =>
