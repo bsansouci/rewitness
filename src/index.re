@@ -484,8 +484,9 @@ let module Make (Gl: Gl.t) => {
     let min3 a b c => min a (min b c);
     let max3 a b c => max a (max b c);
 
-    /** Warning: cool iterative algorithm below.
-     *  TODO(schmavery): I... don't remember how this works, could you fill in some explanation here.
+    /**
+     * We check the current tile to see if we can move in the direction of the mouse. If we can, we move by
+     * one tile in that direction. We also check that you don't draw over your `currentPath`.
      */
     let getOptimalLineEdge
         puzzle::puzzle
@@ -573,6 +574,8 @@ let module Make (Gl: Gl.t) => {
               [head, ...tail]
             }
           };
+
+        /** We check that you can't go on top of your current path. **/
         let nextLineEdge =
           switch gameState.currentPath {
           | [] => Some !minCoord
@@ -584,43 +587,37 @@ let module Make (Gl: Gl.t) => {
               Some lineEdge
             }
           };
+
+        /** If we can't move we stop here and don't update currentPath. **/
         if (nextTile == lineEdgeTile) {
           {...gameState, lineEdge: nextLineEdge}
         } else {
+          let nextGameState = {
+            currentPath: getNextPath gameState.currentPath lineEdgeTile nextTile,
+            lineEdge: nextLineEdge
+          };
           switch (getTileSide puzzle::puzzle tile::nextTile position::!minCoord) {
           | Bottom =>
             if nextTile.tile.bottom {
-              {
-                currentPath: getNextPath gameState.currentPath lineEdgeTile nextTile,
-                lineEdge: nextLineEdge
-              }
+              nextGameState
             } else {
               gameState
             }
           | Left =>
             if nextTile.tile.left {
-              {
-                currentPath: getNextPath gameState.currentPath lineEdgeTile nextTile,
-                lineEdge: nextLineEdge
-              }
+              nextGameState
             } else {
               gameState
             }
           | Top =>
             if nextTile.tile.top {
-              {
-                currentPath: getNextPath gameState.currentPath lineEdgeTile nextTile,
-                lineEdge: nextLineEdge
-              }
+              nextGameState
             } else {
               gameState
             }
           | Right =>
             if nextTile.tile.right {
-              {
-                currentPath: getNextPath gameState.currentPath lineEdgeTile nextTile,
-                lineEdge: nextLineEdge
-              }
+              nextGameState
             } else {
               gameState
             }
@@ -846,7 +843,10 @@ let module Make (Gl: Gl.t) => {
       }
     };
 
-    /** Computes the line drawn when the mouse is moved and mutates the gameState. **/
+    /**
+     * Computes the line drawn when the mouse is moved and mutates the gameState.
+     * We call `getOptimalLineEdge` in a loop, about... 10 times.
+     */
     let onMouseMove puzzle::puzzle gameState::gameState x::x y::y => {
       let mousePos = GCoord {x, y: windowSize - y};
       let rec loop i =>
