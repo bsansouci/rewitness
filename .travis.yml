@@ -1,6 +1,6 @@
 language: node_js
 before_install:
-  apt-get install libsdl2-dev
+  sudo apt-get install libsdl2-dev
 node_js:
   - "6"
   - "6.1"
