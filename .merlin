@@ -14,7 +14,9 @@ S src
 # .merlin into each node_modules package. This is subtle; in short, it's to make
 # jump-to-location work correctly in conjunction with our build & namespacing
 # setup, when you jump into a third-party file.
-
+S ./node_modules/reglinterface/src
+S ./node_modules/reglnative/src
+S ./node_modules/reglweb/src
 
 # B stands for build (artifacts). We generate ours into _build
 B ./_build/top-native/*

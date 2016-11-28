@@ -15,16 +15,15 @@
     "reml": "pbpaste | ./node_modules/reason/refmt_impl.native -parse re -print ml -use-stdin true -is-interface-pp false"
   },
   "dependencies": {
-    "@opam-alpha/tgls": "*",
-    "@opam-alpha/tsdl": "*",
+    "rebel-bin": "https://github.com/bsansouci/rebel-bin.git",
+    "reglinterface": "*",
+    "reglnative": "*",
+    "reglweb": "*",
     "@opam-alpha/topkg": "*",
     "@opam-alpha/merlin": "^ 2.5.0",
     "dependency-env": "https://github.com/npm-ml/dependency-env.git",
     "nopam": "https://github.com/yunxing/nopam.git",
-    "realpath": "*",
-    "reason": "https://github.com/facebook/reason.git",
-    "bs-platform": "https://github.com/bloomberg/bucklescript.git",
-    "webpack": "*"
+    "reason": "https://github.com/facebook/reason.git"
   },
   "rebel": {
     "targets": [

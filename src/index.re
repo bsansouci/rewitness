@@ -2,20 +2,28 @@
  * vim: set ft=rust:
  * vim: set ft=reason:
  */
+/* For some reason right now using Reglinterface.Gl.t just doesn't compile... Will investigate. */
+let module GlInternal = Gl;
+open Reglinterface;
 
 /**
  * Main functor which takes an implementation of the Gl interface defined in Gl.re.
  * Gl.re is a general enough interface to work on both web and native so far.
+ *
  * Scroll down to `drawPackageT` to read a more detailed description of how the rendering happens.
+ *
+ * At the top are simple rendering related types and utility functions. Right below are the game related
+ * types and utility functions.
  */
-let module Make (Gl: Gl.t) => {
+let module Make (Gl: GlInternal.t) => {
   /* Setting up the Gl utils functions */
   type glCamera = {projectionMatrix: Gl.Mat4.t, modelViewMatrix: Gl.Mat4.t};
   type glEnv = {camera: glCamera, window: Gl.Window.t, gl: Gl.contextT};
 
-  /** Will mutate the projectionMatrix to be an ortho matrix with the given boundaries.
-   *  See this link for quick explanation of what this is.
-   *  https://shearer12345.github.io/graphics/assets/projectionPerspectiveVSOrthographic.png
+  /**
+   * Will mutate the projectionMatrix to be an ortho matrix with the given boundaries.
+   * See this link for quick explanation of what this is.
+   * https://shearer12345.github.io/graphics/assets/projectionPerspectiveVSOrthographic.png
    */
   let setProjection (window: Gl.Window.t) (camera: glCamera) =>
     Gl.Mat4.ortho
@@ -126,13 +134,13 @@ let module Make (Gl: Gl.t) => {
    *
    * bl -> bottom left
    *
-   *   --
+   *  --
    *    |
    *
    * br -> bottom right
    *
-   *    --
-   *   |
+   *      --
+   *     |
    *
    * lt -> left top
    *
@@ -177,16 +185,6 @@ let module Make (Gl: Gl.t) => {
       [B.tr, B.lr, B.ltr, B.lr, B.lr, B.lr, B.lt]
     ]
   };
-  let preprocess target shader =>
-    if (target == "web") {
-      "#version 100 \n precision highp float; \n" ^ shader
-    } else if (
-      target == "native"
-    ) {
-      "#version 120 \n" ^ shader
-    } else {
-      shader
-    };
 
   /**
    * `drawPackage` is defined as a dumb way to package everything needed to render simple shapes in OpenGL.
@@ -337,8 +335,6 @@ let module Make (Gl: Gl.t) => {
     Gl.drawArrays gl Constants.triangle_fan 0 360
   };
   let vertexShaderSource =
-    preprocess
-      Gl.target
       {|
        attribute vec3 aVertexPosition;
        attribute vec4 aVertexColor;
@@ -353,8 +349,6 @@ let module Make (Gl: Gl.t) => {
          vColor = aVertexColor;
        }|};
   let fragmentShaderSource =
-    preprocess
-      Gl.target
       {|
        varying vec4 vColor;
 
