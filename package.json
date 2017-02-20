@@ -4,7 +4,6 @@
   "description": "Mini game copying the puzzles from The Witness",
   "scripts": {
     "start": "_build/native/src/app.native",
-    "build": "esy build",
     "editor": "esy $EDITOR .",
     "mlre": "pbpaste | esy refmt --parse ml --print re -use-stdin true -is-interface-pp false",
     "reml": "pbpaste | esy refmt --parse re --print ml -use-stdin true -is-interface-pp false"
