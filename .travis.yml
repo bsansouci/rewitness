@@ -1,6 +1,7 @@
 language: node_js
 before_install:
   - sudo npm install -g https://github.com/reasonml/esy.git\#beta-v0.0.2
+install: esy install
 node_js:
   - '6.1'
 os:
