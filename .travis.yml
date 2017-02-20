@@ -1,6 +1,5 @@
 language: node_js
 before_install:
-  - sudo apt-get install -y libsdl2-dev
   - sudo npm install -g https://github.com/reasonml/esy.git\#beta-v0.0.2
 node_js:
   - '6.1'
