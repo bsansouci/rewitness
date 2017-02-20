@@ -19,12 +19,13 @@
     "ocaml": "esy-ocaml/ocaml#esy",
     "@opam-alpha/merlin": "*",
     "@opam-alpha/topkg": "*",
-    "@opam-alpha/utop": "*"
+    "@opam-alpha/utop": "*",
+    "webpack": "*"
   },
   "esy": {
     "build": [
       "rebel",
-      "webpack $cur__target_dir/web/src/indexwebgl.js $cur__target_dir/web/src/app.js"
+      "node_modules/.bin/webpack $cur__target_dir/web/src/indexwebgl.js $cur__target_dir/web/src/app.js"
     ]
   },
   "rebel": {
