@@ -13,11 +13,13 @@
     "reglinterface": "*",
     "reglnative": "*",
     "reglweb": "*",
-    "@opam-alpha/topkg": "*",
     "reason": "facebook/reason#esy"
   },
   "devDependencies": {
-    "@opam-alpha/merlin": "^ 2.5.0"
+    "ocaml": "esy-ocaml/ocaml#esy",
+    "@opam-alpha/merlin": "*",
+    "@opam-alpha/topkg": "*",
+    "@opam-alpha/utop": "*"
   },
   "esy": {
     "build": [
