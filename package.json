@@ -35,7 +35,7 @@
       "entry": "src/indexopengl.re",
       "unstable_flags": {
         "compile": "-package tgls.tgl3,tsdl",
-        "link": "-linkpkg -package tgls.tgl3,tsdl -cclib \"$(pkg-config --libs reglnative)\""
+        "link": "-linkpkg -package tgls.tgl3,tsdl -cclib \"$(pkg-config --libs reglnative)\" -cclib \"$(pkg-config --libs sdl2)\""
       }
     },{
       "target": "web",
