@@ -1,3 +1,3 @@
-let module Game = Index.Make Reglnative.Opengl.Gl;
+module Game = Index.Make Reglnative.Opengl.Gl;
 
 Game.start ();

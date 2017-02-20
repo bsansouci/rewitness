@@ -2,9 +2,8 @@
  * vim: set ft=rust:
  * vim: set ft=reason:
  */
-/* For some reason right now using Reglinterface.Gl.t just doesn't compile... Will investigate. */
-let module GlInternal = Gl;
 open Reglinterface;
+
 
 /**
  * Main functor which takes an implementation of the Gl interface defined in Gl.re.
@@ -15,7 +14,7 @@ open Reglinterface;
  * At the top are simple rendering related types and utility functions. Right below are the game related
  * types and utility functions.
  */
-let module Make (Gl: GlInternal.t) => {
+module Make (Gl: Reglinterface.Gl.t) => {
   /* Setting up the Gl utils functions */
   type glCamera = {projectionMatrix: Gl.Mat4.t, modelViewMatrix: Gl.Mat4.t};
   type glEnv = {camera: glCamera, window: Gl.Window.t, gl: Gl.contextT};
@@ -64,18 +63,17 @@ let module Make (Gl: GlInternal.t) => {
         Gl.getShaderParameter context::env.gl shader::fragmentShader paramName::Gl.Compile_status == 1;
       if compiledCorrectly {
         let program = Gl.createProgram env.gl;
-        Gl.attachShader context::env.gl program::program shader::vertexShader;
+        Gl.attachShader context::env.gl ::program shader::vertexShader;
         Gl.deleteShader context::env.gl shader::vertexShader;
-        Gl.attachShader context::env.gl program::program shader::fragmentShader;
+        Gl.attachShader context::env.gl ::program shader::fragmentShader;
         Gl.deleteShader context::env.gl shader::fragmentShader;
         Gl.linkProgram env.gl program;
         let linkedCorrectly =
-          Gl.getProgramParameter context::env.gl program::program paramName::Gl.Link_status == 1;
+          Gl.getProgramParameter context::env.gl ::program paramName::Gl.Link_status == 1;
         if linkedCorrectly {
           Some program
         } else {
-          print_endline @@
-          "Linking error: " ^ Gl.getProgramInfoLog context::env.gl program::program;
+          print_endline @@ "Linking error: " ^ Gl.getProgramInfoLog context::env.gl ::program;
           None
         }
       } else {
@@ -117,7 +115,7 @@ let module Make (Gl: GlInternal.t) => {
     mutable currentPath: list tilePointType,
     mutable lineEdge: option gCoordType
   };
-  let module Color = {
+  module Color = {
     let red = (1., 0., 0.);
     let yellow = (0.97, 0.7, 0.);
     let brightYellow = (0.985, 0.88, 0.3);
@@ -149,7 +147,7 @@ let module Make (Gl: GlInternal.t) => {
    *
    * etc...
    */
-  let module B = {
+  module B = {
     let b = {bottom: true, left: false, top: false, right: false};
     let l = {bottom: false, left: true, top: false, right: false};
     let t = {bottom: false, left: false, top: true, right: false};
@@ -237,8 +235,8 @@ let module Make (Gl: GlInternal.t) => {
         pMatrixUniform,
         mvMatrixUniform
       }
-      width::width
-      height::height
+      ::width
+      ::height
       color::(r, g, b)
       position::(GCoord {x, y}) => {
     resetCamera camera;
@@ -262,20 +260,17 @@ let module Make (Gl: GlInternal.t) => {
     Gl.bufferData
       context::gl
       target::Constants.array_buffer
-      data::(Gl.Float32 square_vertices)
+      data::(Gl.Bigarray.of_array Gl.Bigarray.Float32 square_vertices)
       usage::Constants.static_draw;
     Gl.vertexAttribPointer gl aVertexPosition 3 Constants.float_ false 0 0;
 
     /** Setup colors to be sent to the GPU **/
-    let square_colors = ref [];
-    for i in 0 to 3 {
-      square_colors := [r, g, b, 1., ...!square_colors]
-    };
+    let square_colors = [|r, g, b, 1., r, g, b, 1., r, g, b, 1., r, g, b, 1.|];
     Gl.bindBuffer context::gl target::Constants.array_buffer buffer::colorBuffer;
     Gl.bufferData
       context::gl
       target::Constants.array_buffer
-      data::(Gl.Float32 (Array.of_list !square_colors))
+      data::(Gl.Bigarray.of_array Gl.Bigarray.Float32 square_colors)
       usage::Constants.static_draw;
     Gl.vertexAttribPointer gl aVertexColor 4 Constants.float_ false 0 0;
     Gl.uniformMatrix4fv gl pMatrixUniform camera.projectionMatrix;
@@ -292,7 +287,7 @@ let module Make (Gl: GlInternal.t) => {
         pMatrixUniform,
         mvMatrixUniform
       }
-      radius::radius
+      ::radius
       color::(r, g, b)
       position::(GCoord {x, y}) => {
     resetCamera camera;
@@ -314,7 +309,7 @@ let module Make (Gl: GlInternal.t) => {
     Gl.bufferData
       context::gl
       target::Constants.array_buffer
-      data::(Gl.Float32 (Array.of_list !circle_vertex))
+      data::(Gl.Bigarray.of_array Gl.Bigarray.Float32 (Array.of_list !circle_vertex))
       usage::Constants.static_draw;
     Gl.vertexAttribPointer gl aVertexPosition 3 Constants.float_ false 0 0;
 
@@ -327,15 +322,14 @@ let module Make (Gl: GlInternal.t) => {
     Gl.bufferData
       context::gl
       target::Constants.array_buffer
-      data::(Gl.Float32 (Array.of_list !circle_colors))
+      data::(Gl.Bigarray.of_array Gl.Bigarray.Float32 (Array.of_list !circle_colors))
       usage::Constants.static_draw;
     Gl.vertexAttribPointer gl aVertexColor 4 Constants.float_ false 0 0;
     Gl.uniformMatrix4fv gl pMatrixUniform camera.projectionMatrix;
     Gl.uniformMatrix4fv gl mvMatrixUniform camera.modelViewMatrix;
     Gl.drawArrays gl Constants.triangle_fan 0 360
   };
-  let vertexShaderSource =
-      {|
+  let vertexShaderSource = {|
        attribute vec3 aVertexPosition;
        attribute vec4 aVertexColor;
 
@@ -348,8 +342,7 @@ let module Make (Gl: GlInternal.t) => {
          gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
          vColor = aVertexColor;
        }|};
-  let fragmentShaderSource =
-      {|
+  let fragmentShaderSource = {|
        varying vec4 vColor;
 
        void main(void) {
@@ -358,11 +351,11 @@ let module Make (Gl: GlInternal.t) => {
      |};
   let start () => {
     let window = Gl.Window.init argv::Sys.argv;
-    Gl.Window.setWindowSize window::window width::windowSize height::windowSize;
-    let env = buildGlEnv window::window;
+    Gl.Window.setWindowSize ::window width::windowSize height::windowSize;
+    let env = buildGlEnv ::window;
     let program =
       switch (
-        getProgram env::env vertexShader::vertexShaderSource fragmentShader::fragmentShaderSource
+        getProgram ::env vertexShader::vertexShaderSource fragmentShader::fragmentShaderSource
       ) {
       | None => failwith "Could not create the program and/or the shaders. Aborting."
       | Some program => program
@@ -391,11 +384,11 @@ let module Make (Gl: GlInternal.t) => {
       mvMatrixUniform
     };
     /* Curry the drawing functions because we don't care about using them in a different context anyway */
-    let myDrawRect = drawRect drawPackage::drawPackage;
-    let myDrawCircle = drawCircle drawPackage::drawPackage;
+    let myDrawRect = drawRect ::drawPackage;
+    let myDrawCircle = drawCircle ::drawPackage;
 
     /** Bunch of utils function for the game logic **/
-    let centerPoint puzzleSize::puzzleSize position::(GCoord {x, y}) =>
+    let centerPoint ::puzzleSize position::(GCoord {x, y}) =>
       GCoord {
         x: x + windowSize / 2 - puzzleSize * 3 * lineWeight / 2,
         y: y + windowSize / 2 - puzzleSize * 3 * lineWeight / 2
@@ -403,11 +396,10 @@ let module Make (Gl: GlInternal.t) => {
     let toGameCoord (PCoord {x, y}) => GCoord {x: x * 3 * lineWeight, y: y * 3 * lineWeight};
     let getTileCenter (GCoord {x, y}) =>
       GCoord {x: x + 3 * lineWeight / 2, y: y + 3 * lineWeight / 2};
-    let getTileSide puzzle::puzzle tile::tile position::(GCoord {x: px, y: py}) => {
+    let getTileSide ::puzzle ::tile position::(GCoord {x: px, y: py}) => {
       let puzzleSize = List.length puzzle.grid;
-      let GCoord {x: tx, y: ty} = getTileCenter (
-        centerPoint puzzleSize::puzzleSize position::(toGameCoord tile.position)
-      );
+      let GCoord {x: tx, y: ty} =
+        getTileCenter (centerPoint ::puzzleSize position::(toGameCoord tile.position));
       if (py < ty - 7) {
         Bottom
       } else if (px < tx - 7) {
@@ -422,7 +414,7 @@ let module Make (Gl: GlInternal.t) => {
         Center
       }
     };
-    let maybeToTilePoint puzzle::puzzle position::(GCoord {x, y}) => {
+    let maybeToTilePoint ::puzzle position::(GCoord {x, y}) => {
       let puzzleSize = float_of_int (List.length puzzle.grid);
       let uncenteredPoint: floatPointType = {
         x: float_of_int x +. puzzleSize *. 3. *. lineWeightf /. 2. -. windowSizef /. 2.,
@@ -452,13 +444,13 @@ let module Make (Gl: GlInternal.t) => {
       let dy = y2 - y1;
       sqrt @@ float_of_int (dx * dx + dy * dy)
     };
-    let printTile tile =>
-      print_endline @@
-      "bottom: " ^
-      string_of_bool tile.bottom ^
-      ", left: " ^
-      string_of_bool tile.left ^
-      ", top: " ^ string_of_bool tile.top ^ ", right: " ^ string_of_bool tile.right;
+    /* let printTile tile => */
+    /*   print_endline @@ */
+    /*   "bottom: " ^ */
+    /*   string_of_bool tile.bottom ^ */
+    /*   ", left: " ^ */
+    /*   string_of_bool tile.left ^ */
+    /*   ", top: " ^ string_of_bool tile.top ^ ", right: " ^ string_of_bool tile.right; */
     let addSide curSide::ret cur::(PCoord cur) other::(PCoord other) =>
       if (other.y < cur.y) {
         {...ret, bottom: true}
@@ -483,22 +475,21 @@ let module Make (Gl: GlInternal.t) => {
      * one tile in that direction. We also check that you don't draw over your `currentPath`.
      */
     let getOptimalLineEdge
-        puzzle::puzzle
-        gameState::gameState
-        possibleDirs::possibleDirs
+        ::puzzle
+        ::gameState
+        ::possibleDirs
         lineEdge::(GCoord {x: lex, y: ley})
         mousePos::(GCoord {x: mx, y: my}) => {
       let mousePos = GCoord {x: mx, y: my};
       let lineEdge = GCoord {x: lex, y: ley};
       let lineEdgeTile =
-        switch (maybeToTilePoint puzzle::puzzle position::lineEdge) {
+        switch (maybeToTilePoint ::puzzle position::lineEdge) {
         | None => assert false
         | Some x => x
         };
       let puzzleSize = List.length puzzle.grid;
-      let GCoord {x: centerX, y: centerY} = getTileCenter (
-        centerPoint puzzleSize::puzzleSize position::(toGameCoord lineEdgeTile.position)
-      );
+      let GCoord {x: centerX, y: centerY} =
+        getTileCenter (centerPoint ::puzzleSize position::(toGameCoord lineEdgeTile.position));
       let minDist = ref (getDistance mousePos lineEdge);
       let minCoord = ref lineEdge;
       if possibleDirs.bottom {
@@ -537,7 +528,7 @@ let module Make (Gl: GlInternal.t) => {
           minCoord := potentialLineEdge
         }
       };
-      let maybeNextTile = maybeToTilePoint puzzle::puzzle position::!minCoord;
+      let maybeNextTile = maybeToTilePoint ::puzzle position::!minCoord;
       switch maybeNextTile {
       | None => gameState
       | Some nextTile =>
@@ -590,7 +581,7 @@ let module Make (Gl: GlInternal.t) => {
             currentPath: getNextPath gameState.currentPath lineEdgeTile nextTile,
             lineEdge: nextLineEdge
           };
-          switch (getTileSide puzzle::puzzle tile::nextTile position::!minCoord) {
+          switch (getTileSide ::puzzle tile::nextTile position::!minCoord) {
           | Bottom =>
             if nextTile.tile.bottom {
               nextGameState
@@ -622,13 +613,13 @@ let module Make (Gl: GlInternal.t) => {
     };
 
     /** Drawing functions... Draw cell draws one of the cells of the grid of the maze. **/
-    let drawCell tile::{bottom, left, top, right} color::color position::(GCoord {x, y}) => {
+    let drawCell tile::{bottom, left, top, right} ::color position::(GCoord {x, y}) => {
       let numOfSides = ref 0;
       if bottom {
         myDrawRect
           width::lineWeight
           height::(2 * lineWeight - lineWeight / 2)
-          color::color
+          ::color
           position::(GCoord {x: x + lineWeight, y});
         numOfSides := !numOfSides + 1
       };
@@ -636,7 +627,7 @@ let module Make (Gl: GlInternal.t) => {
         myDrawRect
           width::(2 * lineWeight - lineWeight / 2)
           height::lineWeight
-          color::color
+          ::color
           position::(GCoord {x, y: y + lineWeight});
         numOfSides := !numOfSides + 1
       };
@@ -644,7 +635,7 @@ let module Make (Gl: GlInternal.t) => {
         myDrawRect
           width::lineWeight
           height::(2 * lineWeight - lineWeight / 2)
-          color::color
+          ::color
           position::(GCoord {x: x + lineWeight, y: y + lineWeight + lineWeight / 2});
         numOfSides := !numOfSides + 1
       };
@@ -652,25 +643,24 @@ let module Make (Gl: GlInternal.t) => {
         myDrawRect
           width::(2 * lineWeight - lineWeight / 2)
           height::lineWeight
-          color::color
+          ::color
           position::(GCoord {x: x + lineWeight + lineWeight / 2, y: y + lineWeight});
         numOfSides := !numOfSides + 1
       };
       if (!numOfSides >= 2) {
-        myDrawCircle
-          radius::(lineWeight / 2) color::color position::(getTileCenter (GCoord {x, y}))
+        myDrawCircle radius::(lineWeight / 2) ::color position::(getTileCenter (GCoord {x, y}))
       } else {
         let GCoord tileCenter = getTileCenter (GCoord {x, y});
         myDrawRect
           width::lineWeight
           height::lineWeight
-          color::color
+          ::color
           position::(GCoord {x: tileCenter.x - lineWeight / 2, y: tileCenter.y - lineWeight / 2})
       }
     };
 
     /** This is the main loop that draws every cell. **/
-    let drawPuzzle puzzle::puzzle => {
+    let drawPuzzle ::puzzle => {
       let puzzleSize = List.length puzzle.grid;
       List.iteri
         (
@@ -679,11 +669,9 @@ let module Make (Gl: GlInternal.t) => {
               (
                 fun x tile =>
                   drawCell
-                    tile::tile
+                    ::tile
                     color::Color.brown
-                    position::(
-                      centerPoint puzzleSize::puzzleSize position::(toGameCoord (PCoord {x, y}))
-                    )
+                    position::(centerPoint ::puzzleSize position::(toGameCoord (PCoord {x, y})))
               )
               row
         )
@@ -692,19 +680,16 @@ let module Make (Gl: GlInternal.t) => {
         radius::lineWeight
         color::Color.brown
         position::(
-          getTileCenter (
-            centerPoint puzzleSize::puzzleSize position::(toGameCoord puzzle.startTile)
-          )
+          getTileCenter (centerPoint ::puzzleSize position::(toGameCoord puzzle.startTile))
         )
     };
 
     /** Draw the tip of the line if any. Just the tip. **/
-    let drawTip puzzle::puzzle prevTile::maybePrevTile curTile::curTile lineEdge::(GCoord lineEdge) => {
+    let drawTip ::puzzle prevTile::maybePrevTile ::curTile lineEdge::(GCoord lineEdge) => {
       let puzzleSize = List.length puzzle.grid;
-      let lineEdgeTileSide = getTileSide puzzle::puzzle tile::curTile position::(GCoord lineEdge);
-      let GCoord tileCenter = getTileCenter (
-        centerPoint puzzleSize::puzzleSize position::(toGameCoord curTile.position)
-      );
+      let lineEdgeTileSide = getTileSide ::puzzle tile::curTile position::(GCoord lineEdge);
+      let GCoord tileCenter =
+        getTileCenter (centerPoint ::puzzleSize position::(toGameCoord curTile.position));
       let drawSomething () =>
         switch lineEdgeTileSide {
         | Bottom =>
@@ -738,12 +723,10 @@ let module Make (Gl: GlInternal.t) => {
       | Some prevTile =>
         let prevTileSide =
           getTileSide
-            puzzle::puzzle
+            ::puzzle
             tile::curTile
             position::(
-              getTileCenter (
-                centerPoint puzzleSize::puzzleSize position::(toGameCoord prevTile.position)
-              )
+              getTileCenter (centerPoint ::puzzleSize position::(toGameCoord prevTile.position))
             );
         let distanceFromEdge = 3 * lineWeight / 2;
         switch prevTileSide {
@@ -787,38 +770,36 @@ let module Make (Gl: GlInternal.t) => {
     };
 
     /** Event handlers for click and move. **/
-    let didClickOnStartTile puzzle::puzzle mousePos::mousePos => {
+    let didClickOnStartTile ::puzzle ::mousePos => {
       let puzzleSize = List.length puzzle.grid;
-      let circleCenter = getTileCenter (
-        centerPoint puzzleSize::puzzleSize position::(toGameCoord puzzle.startTile)
-      );
+      let circleCenter =
+        getTileCenter (centerPoint ::puzzleSize position::(toGameCoord puzzle.startTile));
       let distance = getDistance circleCenter mousePos;
       distance <= lineWeightf
     };
-    let onMouseDown puzzle::puzzle gameState::gameState button::button state::state x::x y::y => {
+    let onMouseDown ::puzzle ::gameState ::button ::state ::x ::y => {
       let mousePos = GCoord {x, y: windowSize - y};
       let puzzleSize = List.length puzzle.grid;
       switch button {
-      | Gl.Events.LEFT_BUTTON =>
-        if (state == Gl.Events.DOWN) {
+      | Gl.Events.LeftButton =>
+        if (state == Gl.Events.MouseDown) {
           switch gameState.lineEdge {
-          | None when didClickOnStartTile puzzle::puzzle mousePos::mousePos =>
+          | None when didClickOnStartTile ::puzzle ::mousePos =>
             gameState.lineEdge =
               Some (
-                getTileCenter (
-                  centerPoint puzzleSize::puzzleSize position::(toGameCoord puzzle.startTile)
-                )
+                getTileCenter (centerPoint ::puzzleSize position::(toGameCoord puzzle.startTile))
               )
           | Some lineEdge =>
             let lineEdgeTile =
-              switch (maybeToTilePoint puzzle::puzzle position::lineEdge) {
+              switch (maybeToTilePoint ::puzzle position::lineEdge) {
               | None => assert false
               | Some x => x
               };
-            let lineTileSide = getTileSide puzzle::puzzle tile::lineEdgeTile position::lineEdge;
-            let endTileCenter = getTileCenter (
-              centerPoint puzzleSize::puzzleSize position::(toGameCoord puzzle.endTile.position)
-            );
+            let lineTileSide = getTileSide ::puzzle tile::lineEdgeTile position::lineEdge;
+            let endTileCenter =
+              getTileCenter (
+                centerPoint ::puzzleSize position::(toGameCoord puzzle.endTile.position)
+              );
             if (
               lineEdgeTile.position == puzzle.endTile.position &&
               lineTileSide == puzzle.endTile.tileSide && (
@@ -841,40 +822,26 @@ let module Make (Gl: GlInternal.t) => {
      * Computes the line drawn when the mouse is moved and mutates the gameState.
      * We call `getOptimalLineEdge` in a loop, about... 10 times.
      */
-    let onMouseMove puzzle::puzzle gameState::gameState x::x y::y => {
+    let onMouseMove ::puzzle ::gameState ::x ::y => {
       let mousePos = GCoord {x, y: windowSize - y};
       let rec loop i =>
         switch gameState.lineEdge {
         | None => ()
         | Some lineEdge =>
-          switch (maybeToTilePoint puzzle::puzzle position::lineEdge) {
+          switch (maybeToTilePoint ::puzzle position::lineEdge) {
           | None => assert false
           | Some tilePoint =>
             let nextGameState =
-              switch (getTileSide puzzle::puzzle tile::tilePoint position::lineEdge) {
+              switch (getTileSide ::puzzle tile::tilePoint position::lineEdge) {
               | Bottom
               | Top =>
-                getOptimalLineEdge
-                  puzzle::puzzle
-                  gameState::gameState
-                  possibleDirs::B.bt
-                  lineEdge::lineEdge
-                  mousePos::mousePos
+                getOptimalLineEdge ::puzzle ::gameState possibleDirs::B.bt ::lineEdge ::mousePos
               | Left
               | Right =>
-                getOptimalLineEdge
-                  puzzle::puzzle
-                  gameState::gameState
-                  possibleDirs::B.lr
-                  lineEdge::lineEdge
-                  mousePos::mousePos
+                getOptimalLineEdge ::puzzle ::gameState possibleDirs::B.lr ::lineEdge ::mousePos
               | Center =>
                 getOptimalLineEdge
-                  puzzle::puzzle
-                  gameState::gameState
-                  possibleDirs::tilePoint.tile
-                  lineEdge::lineEdge
-                  mousePos::mousePos
+                  ::puzzle ::gameState possibleDirs::tilePoint.tile ::lineEdge ::mousePos
               };
             if (nextGameState != gameState) {
               gameState.currentPath = nextGameState.currentPath;
@@ -891,7 +858,7 @@ let module Make (Gl: GlInternal.t) => {
     /**
      * Main render function.
      */
-    let render puzzle::puzzle gameState::gameState time => {
+    let render ::puzzle ::gameState time => {
       Gl.clear env.gl (Constants.color_buffer_bit lor Constants.depth_buffer_bit);
       myDrawRect
         width::windowSize height::windowSize color::Color.grey position::(GCoord {x: 0, y: 0});
@@ -900,11 +867,10 @@ let module Make (Gl: GlInternal.t) => {
         height::(windowSize - frameWidth * 2)
         color::Color.yellow
         position::(GCoord {x: frameWidth, y: frameWidth});
-      drawPuzzle puzzle::puzzle;
+      drawPuzzle ::puzzle;
       let puzzleSize = List.length puzzle.grid;
-      let GCoord endTileCenter = getTileCenter (
-        centerPoint puzzleSize::puzzleSize position::(toGameCoord puzzle.endTile.position)
-      );
+      let GCoord endTileCenter =
+        getTileCenter (centerPoint ::puzzleSize position::(toGameCoord puzzle.endTile.position));
       switch puzzle.endTile {
       | {tileSide: Bottom} =>
         myDrawCircle
@@ -935,9 +901,7 @@ let module Make (Gl: GlInternal.t) => {
           radius::lineWeight
           color::Color.brightYellow
           position::(
-            getTileCenter (
-              centerPoint puzzleSize::puzzleSize position::(toGameCoord puzzle.startTile)
-            )
+            getTileCenter (centerPoint ::puzzleSize position::(toGameCoord puzzle.startTile))
           );
         ignore @@
         List.map
@@ -946,18 +910,15 @@ let module Make (Gl: GlInternal.t) => {
               drawCell
                 tile::tilePoint.tile
                 color::Color.brightYellow
-                position::(
-                  centerPoint puzzleSize::puzzleSize position::(toGameCoord tilePoint.position)
-                )
+                position::(centerPoint ::puzzleSize position::(toGameCoord tilePoint.position))
           )
           gameState.currentPath;
-        switch (maybeToTilePoint puzzle::puzzle position::lineEdge) {
+        switch (maybeToTilePoint ::puzzle position::lineEdge) {
         | None => assert false
         | Some curTile =>
           switch gameState.currentPath {
-          | [] => drawTip puzzle::puzzle prevTile::None curTile::curTile lineEdge::lineEdge
-          | [head, ...tail] =>
-            drawTip puzzle::puzzle prevTile::(Some head) curTile::curTile lineEdge::lineEdge
+          | [] => drawTip ::puzzle prevTile::None ::curTile ::lineEdge
+          | [head, ...tail] => drawTip ::puzzle prevTile::(Some head) ::curTile ::lineEdge
           }
         };
         myDrawCircle radius::(lineWeight / 2) color::Color.brightYellow position::lineEdge
@@ -971,10 +932,10 @@ let module Make (Gl: GlInternal.t) => {
      * In the native case they are both synchronous and synchronized. In the web case, they're both async.
      */
     Gl.render
-      window::window
-      mouseDown::(onMouseDown puzzle::examplePuzzle gameState::gameState)
-      mouseMove::(onMouseMove puzzle::examplePuzzle gameState::gameState)
-      displayFunc::(render puzzle::examplePuzzle gameState::gameState)
+      ::window
+      mouseDown::(onMouseDown puzzle::examplePuzzle ::gameState)
+      mouseMove::(onMouseMove puzzle::examplePuzzle ::gameState)
+      displayFunc::(render puzzle::examplePuzzle ::gameState)
       ()
   };
 };

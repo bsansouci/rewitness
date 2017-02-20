@@ -3,49 +3,46 @@
   "version": "0.1.0",
   "description": "Mini game copying the puzzles from The Witness",
   "scripts": {
-    "postinstall": "npm run build",
-    "test": "_build/src/app.out",
-    "start": "_build/src/app.out",
-    "build": "eval $(dependencyEnv) && nopam && rebel -verbose && webpack _build/top-web/src/TopWeb_Tar__Indexwebgl.js _build/top-web/src/app.js",
-    "top": "eval $(dependencyEnv) && rtop",
-    "env": "eval $(dependencyEnv) && env",
-    "editor": "eval $(dependencyEnv) && $EDITOR .",
-    "whereisocamlmerlin": "eval $(dependencyEnv)a && which ocamlmerlin-reason",
-    "mlre": "pbpaste | ./node_modules/reason/refmt_impl.native -parse ml -print re -use-stdin true -is-interface-pp false",
-    "reml": "pbpaste | ./node_modules/reason/refmt_impl.native -parse re -print ml -use-stdin true -is-interface-pp false"
+    "start": "_build/native/src/app.native",
+    "editor": "esy $EDITOR .",
+    "mlre": "pbpaste | esy refmt --parse ml --print re -use-stdin true -is-interface-pp false",
+    "reml": "pbpaste | esy refmt --parse re --print ml -use-stdin true -is-interface-pp false"
   },
   "dependencies": {
-    "rebel-bin": "https://github.com/bsansouci/rebel-bin.git",
+    "rebel": "bsansouci/rebel#esy",
     "reglinterface": "*",
     "reglnative": "*",
     "reglweb": "*",
     "@opam-alpha/topkg": "*",
-    "@opam-alpha/merlin": "^ 2.5.0",
-    "dependency-env": "https://github.com/npm-ml/dependency-env.git",
-    "nopam": "https://github.com/yunxing/nopam.git",
-    "reason": "https://github.com/facebook/reason.git"
+    "reason": "facebook/reason#esy"
+  },
+  "devDependencies": {
+    "@opam-alpha/merlin": "^ 2.5.0"
+  },
+  "esy": {
+    "build": [
+      "rebel",
+      "webpack _build/web/src/indexwebgl.js _build/web/src/app.js"
+    ]
   },
   "rebel": {
-    "targets": [
-      {
-        "target": "top-native",
-        "engine": "native",
-        "entry": "src/indexopengl.re",
-        "unstable_flags": {
-          "compile": "-package tgls.tgl3,tsdl",
-          "link": "-linkpkg -package tgls.tgl3,tsdl"
-        }
-      },
-      {
-        "target": "top-web",
-        "engine": "bucklescript",
-        "entry": "src/indexwebgl.re"
+    "targets": [{
+      "target": "native",
+      "engine": "native",
+      "entry": "src/indexopengl.re",
+      "unstable_flags": {
+        "compile": "-package tgls.tgl3,tsdl",
+        "link": "-linkpkg -package tgls.tgl3,tsdl -cclib \"$(pkg-config --libs reglnative)\""
       }
-    ]
+    },{
+      "target": "web",
+      "engine": "bucklescript",
+      "entry": "src/indexwebgl.re"
+    }]
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/bsansouci/ocaml-re.git"
+    "url": "git+https://github.com/bsansouci/rewitness.git"
   },
   "author": "bsansouci & schmavery"
 }
