@@ -4,4 +4,3 @@ _build
 node_modules
 *.native
 *.byte
-yarn.lock
