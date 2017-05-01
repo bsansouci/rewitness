@@ -15,7 +15,6 @@ Example project using Reason as an `npm` dependency.
 ## Get Started:
 
 To build this project you'll need [esy](https://github.com/reasonml/esy) installed globally.
-You can run `npm install -g https://github.com/reasonml/esy.git\#beta-v0.0.2` to install it.
 
 Then do the following
 ```sh
