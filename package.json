@@ -3,40 +3,45 @@
   "version": "0.1.0",
   "description": "Mini game copying the puzzles from The Witness",
   "scripts": {
-    "postinstall": "npm run build",
-    "test": "echo 'No tests yet.  All good :D'",
-    "start": "_build/default/src/app.out",
-    "build": "eval $(dependencyEnv) && nopam && rebel",
-    "top": "eval $(dependencyEnv) && rtop",
-    "env": "eval $(dependencyEnv) && env",
-    "editor": "eval $(dependencyEnv) && eval $EDITOR",
-    "whereisocamlmerlin": "eval $(dependencyEnv) && which ocamlmerlin-reason"
+    "start": "_build/native/src/app.native",
+    "editor": "esy $EDITOR .",
+    "mlre": "pbpaste | esy refmt --parse ml --print re -use-stdin true -is-interface-pp false",
+    "reml": "pbpaste | esy refmt --parse re --print ml -use-stdin true -is-interface-pp false"
   },
   "dependencies": {
-    "@opam-alpha/lablgl": "*",
-    "@opam-alpha/merlin": "^ 2.5.0",
-    "@opam-alpha/ocaml": "4.2.3",    
-    "dependency-env": "https://github.com/npm-ml/dependency-env.git",
-    "nopam": "https://github.com/yunxing/nopam.git",
-    "realpath": "*",
-    "rebel": "https://github.com/reasonml/rebel.git",
-    "reason": "https://github.com/facebook/reason.git"
+    "rebel": "bsansouci/rebel#esy",
+    "reglinterface": "*",
+    "reglnative": "*",
+    "reglweb": "*",
+    "reason": "facebook/reason#esy"
+  },
+  "devDependencies": {
+    "ocaml": "esy-ocaml/ocaml#esy",
+    "@opam-alpha/merlin": "*",
+    "@opam-alpha/topkg": "*",
+    "@opam-alpha/utop": "*",
+    "webpack": "*"
+  },
+  "esy": {
+    "build": [
+      "rebel",
+      "node_modules/.bin/webpack $cur__target_dir/web/src/indexwebgl.js $cur__target_dir/web/src/app.js"
+    ]
   },
   "rebel": {
-    "targets": [
-      {
-        "target": "app",
-        "engine": "native",
-        "entry": "src/index.re",
-        "unstable_flags": { 
-          "link": "-linkpkg -package lablgl.glut -verbose",
-          "compile": "-package lablgl.glut -verbose"
-        }
+    "targets": [{
+      "target": "native",
+      "engine": "native",
+      "entry": "src/indexopengl.re",
+      "unstable_flags": {
+        "compile": "-package tgls.tgl3,tsdl",
+        "link": "-linkpkg -package tgls.tgl3,tsdl -cclib \"$(pkg-config --libs reglnative)\" -cclib \"$(pkg-config --libs sdl2)\""
       }
-    ],
-    "ocamlfindDependencies": [
-      "lablgl.glut"
-    ]
+    },{
+      "target": "web",
+      "engine": "bucklescript",
+      "entry": "src/indexwebgl.re"
+    }]
   },
   "repository": {
     "type": "git",

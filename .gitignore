@@ -1,5 +1,6 @@
 _build
 .jenga
+.merlin
 node_modules
 *.native
 *.byte

@@ -4,7 +4,7 @@ if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
   echo -e "Starting to update osx-build\n"
 
   #copy data we're interested in to other place
-  cp _build/src/index.native $HOME/rewitness.native
+  cp _build/native/src/app.native $HOME/rewitness.native
 
   #go to home and setup git
   cd $HOME
