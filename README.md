@@ -6,11 +6,7 @@
 
 ## Reason via `npm`
 
-Example project using Reason as an `npm` dependency.
-
-> Note: This example will be rapidly changing. It is not officially supported
-> yet. Always reclone the repo each time you try it out (rebasing is not
-> sufficient).
+Graphical example project using Reason as an `npm` dependency. Build to JS, Native and Bytecode.
 
 ## Get Started:
 
@@ -21,6 +17,10 @@ cd rewitness
 npm install
 ./node_modules/.bin/bsb -make-world
 ```
+
+This will build the JS version of this repo. You'll need safari to open this (or you'll need a server if you'd like to open it with Chrome. Use this `python -m SimpleHTTPServer 8000` to start a simple static server.).
+
+To build the bytecode version open `bsconfig.json` and replace `"kind": "js"` with `"kind": "bytecode"` and re-run `./node_modules/.bin/bsb -make-world`.
 
 ## Making your own changes
 
