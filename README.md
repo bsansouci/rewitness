@@ -20,7 +20,9 @@ npm install
 
 This will build the JS version of this repo. You'll need safari to open this (or you'll need a server if you'd like to open it with Chrome. Use this `python -m SimpleHTTPServer 8000` to start a simple static server.).
 
-To build the bytecode version open `bsconfig.json` and replace `"kind": "js"` with `"kind": "bytecode"` and re-run `./node_modules/.bin/bsb -make-world`.
+To build the bytecode version open `bsconfig.json` and replace `"kind": "js"` with `"kind": "bytecode"` and re-run `./node_modules/.bin/bsb -make-world`. The executable is located at `lib/bs/index.byte`. This is an OCaml bytecocde program running in OCaml's VM.
+
+You can also build to native machine code replacing `"kind": "js"` with `"kind": "native"`.
 
 ## Making your own changes
 
