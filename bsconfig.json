@@ -1,0 +1,5 @@
+{
+  "name": "ReWitness",
+  "bs-dependencies": ["ReasonglInterface", "ReasonglNative", "ReasonglWeb"],
+  "sources": "src",
+}

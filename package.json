@@ -9,39 +9,12 @@
     "reml": "pbpaste | esy refmt --parse re --print ml -use-stdin true -is-interface-pp false"
   },
   "dependencies": {
-    "rebel": "bsansouci/rebel#esy",
-    "reglinterface": "*",
-    "reglnative": "*",
-    "reglweb": "*",
-    "reason": "facebook/reason#esy"
+    "ReasonglInterface": "bsansouci/reasongl-interface#bsb-support-new",
+    "ReasonglNative": "bsansouci/reasongl-native#bsb-support-new",
+    "ReasonglWeb": "bsansouci/reasongl-web#bsb-support-new"
   },
   "devDependencies": {
-    "ocaml": "esy-ocaml/ocaml#esy",
-    "@opam-alpha/merlin": "*",
-    "@opam-alpha/topkg": "*",
-    "@opam-alpha/utop": "*",
-    "webpack": "*"
-  },
-  "esy": {
-    "build": [
-      "rebel",
-      "node_modules/.bin/webpack $cur__target_dir/web/src/indexwebgl.js $cur__target_dir/web/src/app.js"
-    ]
-  },
-  "rebel": {
-    "targets": [{
-      "target": "native",
-      "engine": "native",
-      "entry": "src/indexopengl.re",
-      "unstable_flags": {
-        "compile": "-package tgls.tgl3,tsdl",
-        "link": "-linkpkg -package tgls.tgl3,tsdl -cclib \"$(pkg-config --libs reglnative)\" -cclib \"$(pkg-config --libs sdl2)\""
-      }
-    },{
-      "target": "web",
-      "engine": "bucklescript",
-      "entry": "src/indexwebgl.re"
-    }]
+    "bsb-native": "bsansouci/bsb-native"
   },
   "repository": {
     "type": "git",
