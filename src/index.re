@@ -979,7 +979,10 @@ let onMouseDown ::puzzle ::gameState ::button ::state ::x ::y => {
             lineTileSide == Center
           )
         ) {
-          assert false
+          print_endline @@ "You won!";
+          gameState.lineEdge = None;
+          gameState.currentPath = [];
+          failwith "Killing app.";
         } else {
           gameState.lineEdge = None;
           gameState.currentPath = []
