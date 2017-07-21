@@ -2,4 +2,8 @@
   "name": "ReWitness",
   "bs-dependencies": ["ReasonglInterface", "ReasonglNative", "ReasonglWeb"],
   "sources": "src",
+  "entries": [{
+    "kind": "js",
+    "main": "Index" 
+  }]
 }
