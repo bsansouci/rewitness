@@ -39,20 +39,23 @@ let setProjection (window: Gl.Window.t) (camera: glCamera) =>
     near::0.
     far::100.;
 
-let resetCamera (camera: glCamera) => Gl.Mat4.identity camera.modelViewMatrix;
+let resetCamera (camera: glCamera) =>
+  Gl.Mat4.identity out::camera.modelViewMatrix;
 
 let buildGlEnv window::(window: Gl.Window.t) :glEnv => {
-  let gl = Gl.Window.getContext window;
+  let context = Gl.Window.getContext window;
   let glCamera = {
     projectionMatrix: Gl.Mat4.create (),
     modelViewMatrix: Gl.Mat4.create ()
   };
-  let env = {camera: glCamera, window, gl};
+  let env = {camera: glCamera, window, gl: context};
   let canvasWidth = Gl.Window.getWidth window;
   let canvasHeight = Gl.Window.getHeight window;
-  Gl.viewport gl 0 0 canvasWidth canvasHeight;
-  Gl.clearColor gl 0.0 0.0 0.0 1.0;
-  Gl.clear gl (Constants.color_buffer_bit lor Constants.depth_buffer_bit);
+  Gl.viewport ::context x::0 y::0 width::canvasWidth height::canvasHeight;
+  Gl.clearColor ::context r::0.0 g::0.0 b::0.0 a::1.0;
+  Gl.clear
+    ::context
+    mask::(Constants.color_buffer_bit lor Constants.depth_buffer_bit);
   env
 };
 
@@ -61,21 +64,24 @@ let getProgram
     vertexShader::vertexShaderSource
     fragmentShader::fragmentShaderSource
     :option Gl.programT => {
-  let vertexShader = Gl.createShader env.gl Constants.vertex_shader;
-  Gl.shaderSource env.gl vertexShader vertexShaderSource;
-  Gl.compileShader env.gl vertexShader;
+  let vertexShader = Gl.createShader context::env.gl Constants.vertex_shader;
+  Gl.shaderSource
+    context::env.gl shader::vertexShader source::vertexShaderSource;
+  Gl.compileShader context::env.gl vertexShader;
   let compiledCorrectly =
     Gl.getShaderParameter
       context::env.gl shader::vertexShader paramName::Gl.Compile_status == 1;
   if compiledCorrectly {
-    let fragmentShader = Gl.createShader env.gl Constants.fragment_shader;
-    Gl.shaderSource env.gl fragmentShader fragmentShaderSource;
-    Gl.compileShader env.gl fragmentShader;
+    let fragmentShader =
+      Gl.createShader context::env.gl Constants.fragment_shader;
+    Gl.shaderSource
+      context::env.gl shader::fragmentShader source::fragmentShaderSource;
+    Gl.compileShader context::env.gl fragmentShader;
     let compiledCorrectly =
       Gl.getShaderParameter
         context::env.gl shader::fragmentShader paramName::Gl.Compile_status == 1;
     if compiledCorrectly {
-      let program = Gl.createProgram env.gl;
+      let program = Gl.createProgram context::env.gl;
       Gl.attachShader context::env.gl ::program shader::vertexShader;
       Gl.deleteShader context::env.gl vertexShader;
       Gl.attachShader context::env.gl ::program shader::fragmentShader;
@@ -281,7 +287,7 @@ type drawPackageT = {
 
 let drawRect
     drawPackage::{
-      env: {gl, camera},
+      env: {gl: context, camera},
       vertexBuffer,
       colorBuffer,
       aVertexPosition,
@@ -310,32 +316,47 @@ let drawRect
     float_of_int y,
     0.0
   |];
-  Gl.bindBuffer
-    context::gl target::Constants.array_buffer buffer::vertexBuffer;
+  Gl.bindBuffer ::context target::Constants.array_buffer buffer::vertexBuffer;
   Gl.bufferData
-    context::gl
+    ::context
     target::Constants.array_buffer
     data::(Gl.Bigarray.of_array Gl.Bigarray.Float32 square_vertices)
     usage::Constants.static_draw;
-  Gl.vertexAttribPointer gl aVertexPosition 3 Constants.float_ false 0 0;
+  Gl.vertexAttribPointer
+    ::context
+    attribute::aVertexPosition
+    size::3
+    type_::Constants.float_
+    normalize::false
+    stride::0
+    offset::0;
 
   /** Setup colors to be sent to the GPU **/
   let square_colors = [|r, g, b, 1., r, g, b, 1., r, g, b, 1., r, g, b, 1.|];
-  Gl.bindBuffer context::gl target::Constants.array_buffer buffer::colorBuffer;
+  Gl.bindBuffer ::context target::Constants.array_buffer buffer::colorBuffer;
   Gl.bufferData
-    context::gl
+    ::context
     target::Constants.array_buffer
     data::(Gl.Bigarray.of_array Gl.Bigarray.Float32 square_colors)
     usage::Constants.static_draw;
-  Gl.vertexAttribPointer gl aVertexColor 4 Constants.float_ false 0 0;
-  Gl.uniformMatrix4fv gl pMatrixUniform camera.projectionMatrix;
-  Gl.uniformMatrix4fv gl mvMatrixUniform camera.modelViewMatrix;
-  Gl.drawArrays gl Constants.triangle_strip 0 4
+  Gl.vertexAttribPointer
+    ::context
+    attribute::aVertexColor
+    size::4
+    type_::Constants.float_
+    normalize::false
+    stride::0
+    offset::0;
+  Gl.uniformMatrix4fv
+    ::context location::pMatrixUniform value::camera.projectionMatrix;
+  Gl.uniformMatrix4fv
+    ::context location::mvMatrixUniform value::camera.modelViewMatrix;
+  Gl.drawArrays ::context mode::Constants.triangle_strip first::0 count::4
 };
 
 let drawCircle
     drawPackage::{
-      env: {gl, camera},
+      env: {gl: context, camera},
       vertexBuffer,
       colorBuffer,
       aVertexPosition,
@@ -361,33 +382,49 @@ let drawCircle
       ...!circle_vertex
     ]
   };
-  Gl.bindBuffer gl Constants.array_buffer vertexBuffer;
+  Gl.bindBuffer ::context target::Constants.array_buffer buffer::vertexBuffer;
   Gl.bufferData
-    context::gl
+    ::context
     target::Constants.array_buffer
     data::(
       Gl.Bigarray.of_array Gl.Bigarray.Float32 (Array.of_list !circle_vertex)
     )
     usage::Constants.static_draw;
-  Gl.vertexAttribPointer gl aVertexPosition 3 Constants.float_ false 0 0;
+  Gl.vertexAttribPointer
+    ::context
+    attribute::aVertexPosition
+    size::3
+    type_::Constants.float_
+    normalize::false
+    stride::0
+    offset::0;
 
   /** Instantiate color array **/
   let circle_colors = ref [];
-  for i in 0 to 360 {
+  for _ in 0 to 360 {
     circle_colors := [r, g, b, 1., ...!circle_colors]
   };
-  Gl.bindBuffer gl Constants.array_buffer colorBuffer;
+  Gl.bindBuffer ::context target::Constants.array_buffer buffer::colorBuffer;
   Gl.bufferData
-    context::gl
+    ::context
     target::Constants.array_buffer
     data::(
       Gl.Bigarray.of_array Gl.Bigarray.Float32 (Array.of_list !circle_colors)
     )
     usage::Constants.static_draw;
-  Gl.vertexAttribPointer gl aVertexColor 4 Constants.float_ false 0 0;
-  Gl.uniformMatrix4fv gl pMatrixUniform camera.projectionMatrix;
-  Gl.uniformMatrix4fv gl mvMatrixUniform camera.modelViewMatrix;
-  Gl.drawArrays gl Constants.triangle_fan 0 360
+  Gl.vertexAttribPointer
+    ::context
+    attribute::aVertexColor
+    size::4
+    type_::Constants.float_
+    normalize::false
+    stride::0
+    offset::0;
+  Gl.uniformMatrix4fv
+    ::context location::pMatrixUniform value::camera.projectionMatrix;
+  Gl.uniformMatrix4fv
+    ::context location::mvMatrixUniform value::camera.modelViewMatrix;
+  Gl.drawArrays ::context mode::Constants.triangle_fan first::0 count::360
 };
 
 let vertexShaderSource = {|
@@ -430,22 +467,26 @@ let program =
   | Some program => program
   };
 
-Gl.useProgram env.gl program;
+Gl.useProgram context::env.gl program;
 
-let aVertexPosition = Gl.getAttribLocation env.gl program "aVertexPosition";
+let aVertexPosition =
+  Gl.getAttribLocation context::env.gl ::program name::"aVertexPosition";
 
-Gl.enableVertexAttribArray env.gl aVertexPosition;
+Gl.enableVertexAttribArray context::env.gl attribute::aVertexPosition;
 
-let aVertexColor = Gl.getAttribLocation env.gl program "aVertexColor";
+let aVertexColor =
+  Gl.getAttribLocation context::env.gl ::program name::"aVertexColor";
 
-Gl.enableVertexAttribArray env.gl aVertexColor;
+Gl.enableVertexAttribArray context::env.gl attribute::aVertexColor;
 
-let pMatrixUniform = Gl.getUniformLocation env.gl program "uPMatrix";
+let pMatrixUniform =
+  Gl.getUniformLocation context::env.gl ::program name::"uPMatrix";
 
 Gl.uniformMatrix4fv
   context::env.gl location::pMatrixUniform value::env.camera.projectionMatrix;
 
-let mvMatrixUniform = Gl.getUniformLocation env.gl program "uMVMatrix";
+let mvMatrixUniform =
+  Gl.getUniformLocation context::env.gl ::program name::"uMVMatrix";
 
 Gl.uniformMatrix4fv
   context::env.gl location::mvMatrixUniform value::env.camera.modelViewMatrix;
@@ -456,8 +497,8 @@ setProjection env.window env.camera;
 /** Create the drawPackage **/
 let drawPackage = {
   env,
-  vertexBuffer: Gl.createBuffer env.gl,
-  colorBuffer: Gl.createBuffer env.gl,
+  vertexBuffer: Gl.createBuffer context::env.gl,
+  colorBuffer: Gl.createBuffer context::env.gl,
   aVertexPosition,
   aVertexColor,
   pMatrixUniform,
@@ -687,8 +728,8 @@ let getOptimalLineEdge
     let nextLineEdge =
       switch gameState.currentPath {
       | [] => Some !minCoord
-      | [head] => Some !minCoord
-      | [head, ...tail] =>
+      | [_] => Some !minCoord
+      | [_, ...tail] =>
         if (
           List.length (
             List.filter (fun x => x.position == nextTile.position) tail
@@ -982,7 +1023,7 @@ let onMouseDown ::puzzle ::gameState ::button ::state ::x ::y => {
           print_endline @@ "You won!";
           gameState.lineEdge = None;
           gameState.currentPath = [];
-          failwith "Killing app.";
+          failwith "Killing app."
         } else {
           gameState.lineEdge = None;
           gameState.currentPath = []
@@ -993,6 +1034,7 @@ let onMouseDown ::puzzle ::gameState ::button ::state ::x ::y => {
   | _ => ()
   }
 };
+
 
 /**
  * Computes the line drawn when the mouse is moved and mutates the gameState.
@@ -1041,8 +1083,10 @@ let onMouseMove ::puzzle ::gameState ::x ::y => {
 /**
  * Main render function.
  */
-let render ::puzzle ::gameState time => {
-  Gl.clear env.gl (Constants.color_buffer_bit lor Constants.depth_buffer_bit);
+let render ::puzzle ::gameState _ => {
+  Gl.clear
+    context::env.gl
+    mask::(Constants.color_buffer_bit lor Constants.depth_buffer_bit);
   myDrawRect
     width::windowSize
     height::windowSize
@@ -1119,7 +1163,7 @@ let render ::puzzle ::gameState time => {
     | Some curTile =>
       switch gameState.currentPath {
       | [] => drawTip ::puzzle prevTile::None ::curTile ::lineEdge
-      | [head, ...tail] =>
+      | [head, ..._] =>
         drawTip ::puzzle prevTile::(Some head) ::curTile ::lineEdge
       }
     };
