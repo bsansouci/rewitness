@@ -5,5 +5,11 @@
   "entries": [{
     "kind": "js",
     "main": "Index" 
+  },{
+    "kind": "bytecode",
+    "main": "Index" 
+  },{
+    "kind": "native",
+    "main": "Index" 
   }]
 }
