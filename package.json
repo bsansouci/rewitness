@@ -6,12 +6,10 @@
     "build": "bsb -make-world"
   },
   "dependencies": {
-    "ReasonglInterface": "bsansouci/reasongl-interface#bsb-support-new",
-    "ReasonglNative": "bsansouci/reasongl-native#bsb-support-new",
-    "ReasonglWeb": "bsansouci/reasongl-web#bsb-support-new"
+    "reasongl": "bsansouci/reasongl"
   },
   "devDependencies": {
-    "bsb-native": "bsansouci/bsb-native"
+    "bs-platform": "bsansouci/bsb-native#2.1.1"
   },
   "repository": {
     "type": "git",
