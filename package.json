@@ -3,7 +3,13 @@
   "version": "0.1.0",
   "description": "Mini game copying the puzzles from The Witness",
   "scripts": {
-    "build": "bsb -make-world"
+    "build": "bsb -make-world -backend bytecode",
+    "build:js": "bsb -make-world -backend js",
+    "build:native": "bsb -make-world -backend native",
+    "clean": "bsb -clean-world",
+    "start": "./lib/bs/bytecode/index.byte",
+    "start:js": "python -m SimpleHTTPServer 8000",
+    "start:native": "./lib/bs/native/index.native"
   },
   "dependencies": {
     "Reasongl": "bsansouci/reasongl"

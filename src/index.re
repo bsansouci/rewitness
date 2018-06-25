@@ -449,7 +449,7 @@ let fragmentShaderSource = {|
      }
    |};
 
-let window = Gl.Window.init argv::Sys.argv;
+let window = Gl.Window.init screen::"" argv::Sys.argv;
 
 Gl.Window.setWindowSize ::window width::windowSize height::windowSize;
 
