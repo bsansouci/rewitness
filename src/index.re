@@ -1,122 +1,129 @@
-/*
- * Main functor which takes an implementation of the Gl interface defined in Gl.re.
- * Gl.re is a general enough interface to work on both web and native so far.
- *
- * Scroll down to `drawPackageT` to read a more detailed description of how the rendering happens.
- *
- * At the top are simple rendering related types and utility functions. Right below are the game related
- * types and utility functions.
- */
 module Constants = ReasonglInterface.Constants;
 
 module Gl: ReasonglInterface.Gl.t = Reasongl.Gl;
 
-/* Setting up the Gl utils functions */
 type glCamera = {
   projectionMatrix: Gl.Mat4.t,
-  modelViewMatrix: Gl.Mat4.t
+  modelViewMatrix: Gl.Mat4.t,
 };
 
 type glEnv = {
   camera: glCamera,
   window: Gl.Window.t,
-  gl: Gl.contextT
+  gl: Gl.contextT,
 };
 
+let setProjection = (window: Gl.Window.t, camera: glCamera) =>
+  Gl.Mat4.ortho(
+    ~out=camera.projectionMatrix,
+    ~left=0.,
+    ~right=float_of_int(Gl.Window.getWidth(window)),
+    ~bottom=0.,
+    ~top=float_of_int(Gl.Window.getHeight(window)),
+    ~near=0.,
+    ~far=100.,
+  );
 
-/**
- * Will mutate the projectionMatrix to be an ortho matrix with the given boundaries.
- * See this link for quick explanation of what this is.
- * https://shearer12345.github.io/graphics/assets/projectionPerspectiveVSOrthographic.png
- */
-let setProjection (window: Gl.Window.t) (camera: glCamera) =>
-  Gl.Mat4.ortho
-    out::camera.projectionMatrix
-    left::0.
-    right::(float_of_int (Gl.Window.getWidth window))
-    bottom::0.
-    top::(float_of_int (Gl.Window.getHeight window))
-    near::0.
-    far::100.;
+let resetCamera = (camera: glCamera) =>
+  Gl.Mat4.identity(~out=camera.modelViewMatrix);
 
-let resetCamera (camera: glCamera) =>
-  Gl.Mat4.identity out::camera.modelViewMatrix;
-
-let buildGlEnv window::(window: Gl.Window.t) :glEnv => {
-  let context = Gl.Window.getContext window;
+let buildGlEnv = (~window: Gl.Window.t) : glEnv => {
+  let context = Gl.Window.getContext(window);
   let glCamera = {
-    projectionMatrix: Gl.Mat4.create (),
-    modelViewMatrix: Gl.Mat4.create ()
+    projectionMatrix: Gl.Mat4.create(),
+    modelViewMatrix: Gl.Mat4.create(),
   };
   let env = {camera: glCamera, window, gl: context};
-  let canvasWidth = Gl.Window.getWidth window;
-  let canvasHeight = Gl.Window.getHeight window;
-  Gl.viewport ::context x::0 y::0 width::canvasWidth height::canvasHeight;
-  Gl.clearColor ::context r::0.0 g::0.0 b::0.0 a::1.0;
-  Gl.clear
-    ::context
-    mask::(Constants.color_buffer_bit lor Constants.depth_buffer_bit);
-  env
+  let canvasWidth = Gl.Window.getWidth(window);
+  let canvasHeight = Gl.Window.getHeight(window);
+  Gl.viewport(~context, ~x=0, ~y=0, ~width=canvasWidth, ~height=canvasHeight);
+  Gl.clearColor(~context, ~r=0.0, ~g=0.0, ~b=0.0, ~a=1.0);
+  Gl.clear(
+    ~context,
+    ~mask=Constants.color_buffer_bit lor Constants.depth_buffer_bit,
+  );
+  env;
 };
 
-let getProgram
-    env::(env: glEnv)
-    vertexShader::vertexShaderSource
-    fragmentShader::fragmentShaderSource
-    :option Gl.programT => {
-  let vertexShader = Gl.createShader context::env.gl Constants.vertex_shader;
-  Gl.shaderSource
-    context::env.gl shader::vertexShader source::vertexShaderSource;
-  Gl.compileShader context::env.gl vertexShader;
+let getProgram =
+    (
+      ~env: glEnv,
+      ~vertexShader as vertexShaderSource,
+      ~fragmentShader as fragmentShaderSource,
+    )
+    : option(Gl.programT) => {
+  let vertexShader =
+    Gl.createShader(~context=env.gl, Constants.vertex_shader);
+  Gl.shaderSource(
+    ~context=env.gl,
+    ~shader=vertexShader,
+    ~source=vertexShaderSource,
+  );
+  Gl.compileShader(~context=env.gl, vertexShader);
   let compiledCorrectly =
-    Gl.getShaderParameter
-      context::env.gl shader::vertexShader paramName::Gl.Compile_status == 1;
-  if compiledCorrectly {
+    Gl.getShaderParameter(
+      ~context=env.gl,
+      ~shader=vertexShader,
+      ~paramName=Gl.Compile_status,
+    )
+    == 1;
+  if (compiledCorrectly) {
     let fragmentShader =
-      Gl.createShader context::env.gl Constants.fragment_shader;
-    Gl.shaderSource
-      context::env.gl shader::fragmentShader source::fragmentShaderSource;
-    Gl.compileShader context::env.gl fragmentShader;
+      Gl.createShader(~context=env.gl, Constants.fragment_shader);
+    Gl.shaderSource(
+      ~context=env.gl,
+      ~shader=fragmentShader,
+      ~source=fragmentShaderSource,
+    );
+    Gl.compileShader(~context=env.gl, fragmentShader);
     let compiledCorrectly =
-      Gl.getShaderParameter
-        context::env.gl shader::fragmentShader paramName::Gl.Compile_status == 1;
-    if compiledCorrectly {
-      let program = Gl.createProgram context::env.gl;
-      Gl.attachShader context::env.gl ::program shader::vertexShader;
-      Gl.deleteShader context::env.gl vertexShader;
-      Gl.attachShader context::env.gl ::program shader::fragmentShader;
-      Gl.deleteShader context::env.gl fragmentShader;
-      Gl.linkProgram context::env.gl program;
+      Gl.getShaderParameter(
+        ~context=env.gl,
+        ~shader=fragmentShader,
+        ~paramName=Gl.Compile_status,
+      )
+      == 1;
+    if (compiledCorrectly) {
+      let program = Gl.createProgram(~context=env.gl);
+      Gl.attachShader(~context=env.gl, ~program, ~shader=vertexShader);
+      Gl.deleteShader(~context=env.gl, vertexShader);
+      Gl.attachShader(~context=env.gl, ~program, ~shader=fragmentShader);
+      Gl.deleteShader(~context=env.gl, fragmentShader);
+      Gl.linkProgram(~context=env.gl, program);
       let linkedCorrectly =
-        Gl.getProgramParameter
-          context::env.gl ::program paramName::Gl.Link_status == 1;
-      if linkedCorrectly {
-        Some program
+        Gl.getProgramParameter(
+          ~context=env.gl,
+          ~program,
+          ~paramName=Gl.Link_status,
+        )
+        == 1;
+      if (linkedCorrectly) {
+        Some(program);
       } else {
         print_endline @@
-        "Linking error: " ^ Gl.getProgramInfoLog context::env.gl program;
-        None
-      }
+        "Linking error: "
+        ++ Gl.getProgramInfoLog(~context=env.gl, program);
+        None;
+      };
     } else {
       print_endline @@
-      "Fragment shader error: " ^
-      Gl.getShaderInfoLog context::env.gl fragmentShader;
-      None
-    }
+      "Fragment shader error: "
+      ++ Gl.getShaderInfoLog(~context=env.gl, fragmentShader);
+      None;
+    };
   } else {
     print_endline @@
-    "Vertex shader error: " ^ Gl.getShaderInfoLog context::env.gl vertexShader;
-    None
-  }
+    "Vertex shader error: "
+    ++ Gl.getShaderInfoLog(~context=env.gl, vertexShader);
+    None;
+  };
 };
 
-
-/** Setting up the game's datatypes. **/
 type tileType = {
   bottom: bool,
   left: bool,
   top: bool,
-  right: bool
+  right: bool,
 };
 
 type tileSideType =
@@ -128,42 +135,42 @@ type tileSideType =
 
 type floatPointType = {
   x: float,
-  y: float
+  y: float,
 };
 
 type intPointType = {
   x: int,
-  y: int
+  y: int,
 };
 
 type wCoordType =
-  | WCoord floatPointType;
+  | WCoord(floatPointType);
 
 type gCoordType =
-  | GCoord intPointType;
+  | GCoord(intPointType);
 
 type pCoordType =
-  | PCoord intPointType;
+  | PCoord(intPointType);
 
 type tileSidePointType = {
   position: pCoordType,
-  tileSide: tileSideType
+  tileSide: tileSideType,
 };
 
 type puzzleType = {
   startTile: pCoordType,
   endTile: tileSidePointType,
-  grid: list (list tileType)
+  grid: list(list(tileType)),
 };
 
 type tilePointType = {
   tile: tileType,
-  position: pCoordType
+  position: pCoordType,
 };
 
 type gameStateType = {
-  mutable currentPath: list tilePointType,
-  mutable lineEdge: option gCoordType
+  mutable currentPath: list(tilePointType),
+  mutable lineEdge: option(gCoordType),
 };
 
 module Color = {
@@ -174,31 +181,6 @@ module Color = {
   let grey = (0.27, 0.3, 0.32);
 };
 
-
-/**
- * This module helps us define the maze.
- * b -> bottom
- * l -> left
- * t -> top
- * r -> right
- *
- * bl -> bottom left
- *
- *  --
- *    |
- *
- * br -> bottom right
- *
- *      --
- *     |
- *
- * lt -> left top
- *
- *     |
- *   --
- *
- * etc...
- */
 module B = {
   let b = {bottom: true, left: false, top: false, right: false};
   let l = {bottom: false, left: true, top: false, right: false};
@@ -220,17 +202,20 @@ module B = {
 
 let lineWeight = 30;
 
-let lineWeightf = float_of_int lineWeight;
+let lineWeightf = float_of_int(lineWeight);
 
 let windowSize = 800;
 
 let frameWidth = lineWeight;
 
-let windowSizef = float_of_int windowSize;
+let windowSizef = float_of_int(windowSize);
 
 let examplePuzzle = {
-  startTile: PCoord {x: 4, y: 2},
-  endTile: {position: PCoord {x: 2, y: 6}, tileSide: Top},
+  startTile: PCoord({x: 4, y: 2}),
+  endTile: {
+    position: PCoord({x: 2, y: 6}),
+    tileSide: Top,
+  },
   grid: [
     [B.br, B.lr, B.blt, B.br, B.bl, B.br, B.bl],
     [B.bt, B.b, B.tr, B.lt, B.tr, B.lt, B.bt],
@@ -238,43 +223,10 @@ let examplePuzzle = {
     [B.t, B.bt, B.btr, B.lr, B.lt, B.b, B.bt],
     [B.r, B.blt, B.tr, B.blr, B.blr, B.blt, B.t],
     [B.b, B.t, B.b, B.tr, B.lt, B.tr, B.bl],
-    [B.tr, B.lr, B.ltr, B.lr, B.lr, B.lr, B.lt]
-  ]
+    [B.tr, B.lr, B.ltr, B.lr, B.lr, B.lr, B.lt],
+  ],
 };
 
-
-/**
- * `drawPackage` is defined as a dumb way to package everything needed to render simple shapes in OpenGL.
- * It contains the projection matrix, the model view matrix, all the attributes and uniforms for the
- * shaders and the buffers needed (vertex and color).
- *
- * Here's a rundown of what everything means just so you can understand the code:
- * - shaders are scripts that are compiled, linked and ran on the GPU. They have a set of inputs (
- *   "attribute"s and "uniform"s) and outputs (like "varying" in the vertex shader or predefined ones like
- *   "gl_Position" and "gl_FragColor"). There are two kinds of shaders: vertex shaders and fragment shaders.
- *   Vertex shaders are basically a function that gets called on every vertex that you send to the graphics
- *   card. Fragment shaders are basically called on every pixel of the shape generated after running the
- *   vertex shader. This game uses the two most simple shaders, a vertex shader that set the gl_Position of
- *   every vertex and a fragment shader which set the gl_FragColor (its color) of the pixel.
- *   We pass down the vertex position and color through to the vertex shader through a thing called an
- *   "attribute". Then the color is piped to the fragment shader (and not used in the vertex shader), which
- *   will set the pixel color.
- *   You'd use a vertex shader to move your geometry around (we "move" it by translating it to screen
- *   coordinates) and distort it. You'd use a fragment shader to change the pixel colors, for a tint effect
- *   for example.
- *   A "uniform" is basically a global constant across vertices or pixels. Here it's the projection matrix
- *   and the model view matrix
- *
- * - the projection matrix is a matrix that is passed to the vertex shader which represents a
- *   transformation from a 3D space to a 2D space (ie: from the game world to our screen). For an already
- *   2D game, we simply use a matrix called "Orthogonal". Here's a great picture to discribe it
- *   https://shearer12345.github.io/graphics/assets/projectionPerspectiveVSOrthographic.png
- *
- * - don't worry about the model view matrix (read: I'm not sure why it's there).
- *
- * - the "buffer"s are basically space on the GPU's memory, which is where we actually store the data of
- *   the points.
- */
 type drawPackageT = {
   env: glEnv,
   vertexBuffer: Gl.bufferT,
@@ -282,149 +234,186 @@ type drawPackageT = {
   aVertexPosition: Gl.attributeT,
   aVertexColor: Gl.attributeT,
   pMatrixUniform: Gl.uniformT,
-  mvMatrixUniform: Gl.uniformT
+  mvMatrixUniform: Gl.uniformT,
 };
 
-let drawRect
-    drawPackage::{
-      env: {gl: context, camera},
-      vertexBuffer,
-      colorBuffer,
-      aVertexPosition,
-      aVertexColor,
-      pMatrixUniform,
-      mvMatrixUniform
-    }
-    ::width
-    ::height
-    color::(r, g, b)
-    position::(GCoord {x, y}) => {
-  resetCamera camera;
-
-  /** Setup vertices to be sent to the GPU **/
+let drawRect =
+    (
+      ~drawPackage as {
+        env: {gl: context, camera},
+        vertexBuffer,
+        colorBuffer,
+        aVertexPosition,
+        aVertexColor,
+        pMatrixUniform,
+        mvMatrixUniform,
+      },
+      ~width,
+      ~height,
+      ~color as (r, g, b),
+      ~position as GCoord({x, y}),
+    ) => {
+  resetCamera(camera);
   let square_vertices = [|
     float_of_int @@ x + width,
     float_of_int @@ y + height,
     0.0,
-    float_of_int x,
+    float_of_int(x),
     float_of_int @@ y + height,
     0.0,
     float_of_int @@ x + width,
-    float_of_int y,
+    float_of_int(y),
     0.0,
-    float_of_int x,
-    float_of_int y,
-    0.0
+    float_of_int(x),
+    float_of_int(y),
+    0.0,
   |];
-  Gl.bindBuffer ::context target::Constants.array_buffer buffer::vertexBuffer;
-  Gl.bufferData
-    ::context
-    target::Constants.array_buffer
-    data::(Gl.Bigarray.of_array Gl.Bigarray.Float32 square_vertices)
-    usage::Constants.static_draw;
-  Gl.vertexAttribPointer
-    ::context
-    attribute::aVertexPosition
-    size::3
-    type_::Constants.float_
-    normalize::false
-    stride::0
-    offset::0;
-
-  /** Setup colors to be sent to the GPU **/
+  Gl.bindBuffer(
+    ~context,
+    ~target=Constants.array_buffer,
+    ~buffer=vertexBuffer,
+  );
+  Gl.bufferData(
+    ~context,
+    ~target=Constants.array_buffer,
+    ~data=Gl.Bigarray.of_array(Gl.Bigarray.Float32, square_vertices),
+    ~usage=Constants.static_draw,
+  );
+  Gl.vertexAttribPointer(
+    ~context,
+    ~attribute=aVertexPosition,
+    ~size=3,
+    ~type_=Constants.float_,
+    ~normalize=false,
+    ~stride=0,
+    ~offset=0,
+  );
   let square_colors = [|r, g, b, 1., r, g, b, 1., r, g, b, 1., r, g, b, 1.|];
-  Gl.bindBuffer ::context target::Constants.array_buffer buffer::colorBuffer;
-  Gl.bufferData
-    ::context
-    target::Constants.array_buffer
-    data::(Gl.Bigarray.of_array Gl.Bigarray.Float32 square_colors)
-    usage::Constants.static_draw;
-  Gl.vertexAttribPointer
-    ::context
-    attribute::aVertexColor
-    size::4
-    type_::Constants.float_
-    normalize::false
-    stride::0
-    offset::0;
-  Gl.uniformMatrix4fv
-    ::context location::pMatrixUniform value::camera.projectionMatrix;
-  Gl.uniformMatrix4fv
-    ::context location::mvMatrixUniform value::camera.modelViewMatrix;
-  Gl.drawArrays ::context mode::Constants.triangle_strip first::0 count::4
+  Gl.bindBuffer(
+    ~context,
+    ~target=Constants.array_buffer,
+    ~buffer=colorBuffer,
+  );
+  Gl.bufferData(
+    ~context,
+    ~target=Constants.array_buffer,
+    ~data=Gl.Bigarray.of_array(Gl.Bigarray.Float32, square_colors),
+    ~usage=Constants.static_draw,
+  );
+  Gl.vertexAttribPointer(
+    ~context,
+    ~attribute=aVertexColor,
+    ~size=4,
+    ~type_=Constants.float_,
+    ~normalize=false,
+    ~stride=0,
+    ~offset=0,
+  );
+  Gl.uniformMatrix4fv(
+    ~context,
+    ~location=pMatrixUniform,
+    ~value=camera.projectionMatrix,
+  );
+  Gl.uniformMatrix4fv(
+    ~context,
+    ~location=mvMatrixUniform,
+    ~value=camera.modelViewMatrix,
+  );
+  Gl.drawArrays(~context, ~mode=Constants.triangle_strip, ~first=0, ~count=4);
 };
 
-let drawCircle
-    drawPackage::{
-      env: {gl: context, camera},
-      vertexBuffer,
-      colorBuffer,
-      aVertexPosition,
-      aVertexColor,
-      pMatrixUniform,
-      mvMatrixUniform
-    }
-    ::radius
-    color::(r, g, b)
-    position::(GCoord {x, y}) => {
-  resetCamera camera;
-
-  /** Instantiate a list of points for the circle and bind to the circleBuffer. **/
-  let circle_vertex = ref [];
-  for i in 0 to 360 {
+let drawCircle =
+    (
+      ~drawPackage as {
+        env: {gl: context, camera},
+        vertexBuffer,
+        colorBuffer,
+        aVertexPosition,
+        aVertexColor,
+        pMatrixUniform,
+        mvMatrixUniform,
+      },
+      ~radius,
+      ~color as (r, g, b),
+      ~position as GCoord({x, y}),
+    ) => {
+  resetCamera(camera);
+  let circle_vertex = ref([]);
+  for (i in 0 to 360) {
     let deg2grad = 3.14159 /. 180.;
-    let degInGrad = float_of_int i *. deg2grad;
-    let floatRadius = float_of_int radius;
-    circle_vertex := [
-      cos degInGrad *. floatRadius +. float_of_int x,
-      sin degInGrad *. floatRadius +. float_of_int y,
-      0.,
-      ...!circle_vertex
-    ]
+    let degInGrad = float_of_int(i) *. deg2grad;
+    let floatRadius = float_of_int(radius);
+    circle_vertex :=
+      [
+        cos(degInGrad) *. floatRadius +. float_of_int(x),
+        sin(degInGrad) *. floatRadius +. float_of_int(y),
+        0.,
+        ...circle_vertex^,
+      ];
   };
-  Gl.bindBuffer ::context target::Constants.array_buffer buffer::vertexBuffer;
-  Gl.bufferData
-    ::context
-    target::Constants.array_buffer
-    data::(
-      Gl.Bigarray.of_array Gl.Bigarray.Float32 (Array.of_list !circle_vertex)
-    )
-    usage::Constants.static_draw;
-  Gl.vertexAttribPointer
-    ::context
-    attribute::aVertexPosition
-    size::3
-    type_::Constants.float_
-    normalize::false
-    stride::0
-    offset::0;
-
-  /** Instantiate color array **/
-  let circle_colors = ref [];
-  for _ in 0 to 360 {
-    circle_colors := [r, g, b, 1., ...!circle_colors]
+  Gl.bindBuffer(
+    ~context,
+    ~target=Constants.array_buffer,
+    ~buffer=vertexBuffer,
+  );
+  Gl.bufferData(
+    ~context,
+    ~target=Constants.array_buffer,
+    ~data=
+      Gl.Bigarray.of_array(
+        Gl.Bigarray.Float32,
+        Array.of_list(circle_vertex^),
+      ),
+    ~usage=Constants.static_draw,
+  );
+  Gl.vertexAttribPointer(
+    ~context,
+    ~attribute=aVertexPosition,
+    ~size=3,
+    ~type_=Constants.float_,
+    ~normalize=false,
+    ~stride=0,
+    ~offset=0,
+  );
+  let circle_colors = ref([]);
+  for (_ in 0 to 360) {
+    circle_colors := [r, g, b, 1., ...circle_colors^];
   };
-  Gl.bindBuffer ::context target::Constants.array_buffer buffer::colorBuffer;
-  Gl.bufferData
-    ::context
-    target::Constants.array_buffer
-    data::(
-      Gl.Bigarray.of_array Gl.Bigarray.Float32 (Array.of_list !circle_colors)
-    )
-    usage::Constants.static_draw;
-  Gl.vertexAttribPointer
-    ::context
-    attribute::aVertexColor
-    size::4
-    type_::Constants.float_
-    normalize::false
-    stride::0
-    offset::0;
-  Gl.uniformMatrix4fv
-    ::context location::pMatrixUniform value::camera.projectionMatrix;
-  Gl.uniformMatrix4fv
-    ::context location::mvMatrixUniform value::camera.modelViewMatrix;
-  Gl.drawArrays ::context mode::Constants.triangle_fan first::0 count::360
+  Gl.bindBuffer(
+    ~context,
+    ~target=Constants.array_buffer,
+    ~buffer=colorBuffer,
+  );
+  Gl.bufferData(
+    ~context,
+    ~target=Constants.array_buffer,
+    ~data=
+      Gl.Bigarray.of_array(
+        Gl.Bigarray.Float32,
+        Array.of_list(circle_colors^),
+      ),
+    ~usage=Constants.static_draw,
+  );
+  Gl.vertexAttribPointer(
+    ~context,
+    ~attribute=aVertexColor,
+    ~size=4,
+    ~type_=Constants.float_,
+    ~normalize=false,
+    ~stride=0,
+    ~offset=0,
+  );
+  Gl.uniformMatrix4fv(
+    ~context,
+    ~location=pMatrixUniform,
+    ~value=camera.projectionMatrix,
+  );
+  Gl.uniformMatrix4fv(
+    ~context,
+    ~location=mvMatrixUniform,
+    ~value=camera.modelViewMatrix,
+  );
+  Gl.drawArrays(~context, ~mode=Constants.triangle_fan, ~first=0, ~count=360);
 };
 
 let vertexShaderSource = {|
@@ -449,740 +438,763 @@ let fragmentShaderSource = {|
      }
    |};
 
-let window = Gl.Window.init screen::"" argv::Sys.argv;
+let window = Gl.Window.init(~screen="", ~argv=Sys.argv);
 
-Gl.Window.setWindowSize ::window width::windowSize height::windowSize;
+Gl.Window.setWindowSize(~window, ~width=windowSize, ~height=windowSize);
 
-let env = buildGlEnv ::window;
+let env = buildGlEnv(~window);
 
 let program =
   switch (
-    getProgram
-      ::env
-      vertexShader::vertexShaderSource
-      fragmentShader::fragmentShaderSource
+    getProgram(
+      ~env,
+      ~vertexShader=vertexShaderSource,
+      ~fragmentShader=fragmentShaderSource,
+    )
   ) {
   | None =>
-    failwith "Could not create the program and/or the shaders. Aborting."
-  | Some program => program
+    failwith("Could not create the program and/or the shaders. Aborting.")
+  | Some(program) => program
   };
 
-Gl.useProgram context::env.gl program;
+Gl.useProgram(~context=env.gl, program);
 
 let aVertexPosition =
-  Gl.getAttribLocation context::env.gl ::program name::"aVertexPosition";
+  Gl.getAttribLocation(~context=env.gl, ~program, ~name="aVertexPosition");
 
-Gl.enableVertexAttribArray context::env.gl attribute::aVertexPosition;
+Gl.enableVertexAttribArray(~context=env.gl, ~attribute=aVertexPosition);
 
 let aVertexColor =
-  Gl.getAttribLocation context::env.gl ::program name::"aVertexColor";
+  Gl.getAttribLocation(~context=env.gl, ~program, ~name="aVertexColor");
 
-Gl.enableVertexAttribArray context::env.gl attribute::aVertexColor;
+Gl.enableVertexAttribArray(~context=env.gl, ~attribute=aVertexColor);
 
 let pMatrixUniform =
-  Gl.getUniformLocation context::env.gl ::program name::"uPMatrix";
+  Gl.getUniformLocation(~context=env.gl, ~program, ~name="uPMatrix");
 
-Gl.uniformMatrix4fv
-  context::env.gl location::pMatrixUniform value::env.camera.projectionMatrix;
+Gl.uniformMatrix4fv(
+  ~context=env.gl,
+  ~location=pMatrixUniform,
+  ~value=env.camera.projectionMatrix,
+);
 
 let mvMatrixUniform =
-  Gl.getUniformLocation context::env.gl ::program name::"uMVMatrix";
+  Gl.getUniformLocation(~context=env.gl, ~program, ~name="uMVMatrix");
 
-Gl.uniformMatrix4fv
-  context::env.gl location::mvMatrixUniform value::env.camera.modelViewMatrix;
+Gl.uniformMatrix4fv(
+  ~context=env.gl,
+  ~location=mvMatrixUniform,
+  ~value=env.camera.modelViewMatrix,
+);
 
-setProjection env.window env.camera;
+setProjection(env.window, env.camera);
 
-
-/** Create the drawPackage **/
 let drawPackage = {
   env,
-  vertexBuffer: Gl.createBuffer context::env.gl,
-  colorBuffer: Gl.createBuffer context::env.gl,
+  vertexBuffer: Gl.createBuffer(~context=env.gl),
+  colorBuffer: Gl.createBuffer(~context=env.gl),
   aVertexPosition,
   aVertexColor,
   pMatrixUniform,
-  mvMatrixUniform
+  mvMatrixUniform,
 };
 
-/* Curry the drawing functions because we don't care about using them in a different context anyway */
-let myDrawRect = drawRect ::drawPackage;
+let myDrawRect = drawRect(~drawPackage);
 
-let myDrawCircle = drawCircle ::drawPackage;
+let myDrawCircle = drawCircle(~drawPackage);
 
-
-/** Bunch of utils function for the game logic **/
-let centerPoint ::puzzleSize position::(GCoord {x, y}) =>
-  GCoord {
+let centerPoint = (~puzzleSize, ~position as GCoord({x, y})) =>
+  GCoord({
     x: x + windowSize / 2 - puzzleSize * 3 * lineWeight / 2,
-    y: y + windowSize / 2 - puzzleSize * 3 * lineWeight / 2
-  };
+    y: y + windowSize / 2 - puzzleSize * 3 * lineWeight / 2,
+  });
 
-let toGameCoord (PCoord {x, y}) =>
-  GCoord {x: x * 3 * lineWeight, y: y * 3 * lineWeight};
+let toGameCoord = (PCoord({x, y})) =>
+  GCoord({x: x * 3 * lineWeight, y: y * 3 * lineWeight});
 
-let getTileCenter (GCoord {x, y}) =>
-  GCoord {x: x + 3 * lineWeight / 2, y: y + 3 * lineWeight / 2};
+let getTileCenter = (GCoord({x, y})) =>
+  GCoord({x: x + 3 * lineWeight / 2, y: y + 3 * lineWeight / 2});
 
-let getTileSide ::puzzle ::tile position::(GCoord {x: px, y: py}) => {
-  let puzzleSize = List.length puzzle.grid;
-  let GCoord {x: tx, y: ty} =
-    getTileCenter (
-      centerPoint ::puzzleSize position::(toGameCoord tile.position)
+let getTileSide = (~puzzle, ~tile, ~position as GCoord({x: px, y: py})) => {
+  let puzzleSize = List.length(puzzle.grid);
+  let GCoord({x: tx, y: ty}) =
+    getTileCenter(
+      centerPoint(~puzzleSize, ~position=toGameCoord(tile.position)),
     );
   if (py < ty - 7) {
-    Bottom
+    Bottom;
   } else if (px < tx - 7) {
-    Left
+    Left;
   } else if (py > ty + 7) {
-    Top
-  } else if (
-    px > tx + 7
-  ) {
-    Right
+    Top;
+  } else if (px > tx + 7) {
+    Right;
   } else {
-    Center
-  }
+    Center;
+  };
 };
 
-let maybeToTilePoint ::puzzle position::(GCoord {x, y}) => {
-  let puzzleSize = float_of_int (List.length puzzle.grid);
+let maybeToTilePoint = (~puzzle, ~position as GCoord({x, y})) => {
+  let puzzleSize = float_of_int(List.length(puzzle.grid));
   let uncenteredPoint: floatPointType = {
     x:
-      float_of_int x +. puzzleSize *. 3. *. lineWeightf /. 2. -.
-      windowSizef /. 2.,
+      float_of_int(x)
+      +. puzzleSize
+      *. 3.
+      *. lineWeightf
+      /. 2.
+      -. windowSizef
+      /. 2.,
     y:
-      float_of_int y +. puzzleSize *. 3. *. lineWeightf /. 2. -.
-      windowSizef /. 2.
+      float_of_int(y)
+      +. puzzleSize
+      *. 3.
+      *. lineWeightf
+      /. 2.
+      -. windowSizef
+      /. 2.,
   };
   let puzzleCoord: floatPointType = {
     x: uncenteredPoint.x /. (3. *. lineWeightf),
-    y: uncenteredPoint.y /. (3. *. lineWeightf)
+    y: uncenteredPoint.y /. (3. *. lineWeightf),
   };
-  if (
-    puzzleCoord.x < 0. ||
-    puzzleCoord.x >= puzzleSize ||
-    puzzleCoord.y < 0. || puzzleCoord.y >= puzzleSize
-  ) {
-    None
+  if (puzzleCoord.x < 0.
+      || puzzleCoord.x >= puzzleSize
+      || puzzleCoord.y < 0.
+      || puzzleCoord.y >= puzzleSize) {
+    None;
   } else {
-    Some {
+    Some({
       tile:
-        List.nth
-          (List.nth (List.rev puzzle.grid) (int_of_float puzzleCoord.y))
-          (int_of_float puzzleCoord.x),
+        List.nth(
+          List.nth(List.rev(puzzle.grid), int_of_float(puzzleCoord.y)),
+          int_of_float(puzzleCoord.x),
+        ),
       position:
-        PCoord {x: int_of_float puzzleCoord.x, y: int_of_float puzzleCoord.y}
-    }
-  }
+        PCoord({
+          x: int_of_float(puzzleCoord.x),
+          y: int_of_float(puzzleCoord.y),
+        }),
+    });
+  };
 };
 
-let getDistance (GCoord {x: x1, y: y1}) (GCoord {x: x2, y: y2}) => {
+let getDistance = (GCoord({x: x1, y: y1}), GCoord({x: x2, y: y2})) => {
   let dx = x2 - x1;
   let dy = y2 - y1;
-  sqrt @@ float_of_int (dx * dx + dy * dy)
+  sqrt @@ float_of_int(dx * dx + dy * dy);
 };
 
-/* let printTile tile => */
-/*   print_endline @@ */
-/*   "bottom: " ^ */
-/*   string_of_bool tile.bottom ^ */
-/*   ", left: " ^ */
-/*   string_of_bool tile.left ^ */
-/*   ", top: " ^ string_of_bool tile.top ^ ", right: " ^ string_of_bool tile.right; */
-let addSide curSide::ret cur::(PCoord cur) other::(PCoord other) =>
+let addSide = (~curSide as ret, ~cur as PCoord(cur), ~other as PCoord(other)) =>
   if (other.y < cur.y) {
-    {...ret, bottom: true}
+    {...ret, bottom: true};
   } else if (other.x < cur.x) {
-    {...ret, left: true}
-  } else if (
-    other.y > cur.y
-  ) {
-    {...ret, top: true}
-  } else if (
-    other.x > cur.x
-  ) {
-    {...ret, right: true}
+    {...ret, left: true};
+  } else if (other.y > cur.y) {
+    {...ret, top: true};
+  } else if (other.x > cur.x) {
+    {...ret, right: true};
   } else {
-    assert false
+    assert false;
   };
 
-let min3 a b c => min a (min b c);
+let min3 = (a, b, c) => min(a, min(b, c));
 
-let max3 a b c => max a (max b c);
+let max3 = (a, b, c) => max(a, max(b, c));
 
-
-/**
- * We check the current tile to see if we can move in the direction of the mouse. If we can, we move by
- * one tile in that direction. We also check that you don't draw over your `currentPath`.
- */
-let getOptimalLineEdge
-    ::puzzle
-    ::gameState
-    ::possibleDirs
-    lineEdge::(GCoord {x: lex, y: ley})
-    mousePos::(GCoord {x: mx, y: my}) => {
-  let mousePos = GCoord {x: mx, y: my};
-  let lineEdge = GCoord {x: lex, y: ley};
+let getOptimalLineEdge =
+    (
+      ~puzzle,
+      ~gameState,
+      ~possibleDirs,
+      ~lineEdge as GCoord({x: lex, y: ley}),
+      ~mousePos as GCoord({x: mx, y: my}),
+    ) => {
+  let mousePos = GCoord({x: mx, y: my});
+  let lineEdge = GCoord({x: lex, y: ley});
   let lineEdgeTile =
-    switch (maybeToTilePoint ::puzzle position::lineEdge) {
+    switch (maybeToTilePoint(~puzzle, ~position=lineEdge)) {
     | None => assert false
-    | Some x => x
+    | Some(x) => x
     };
-  let puzzleSize = List.length puzzle.grid;
-  let GCoord {x: centerX, y: centerY} =
-    getTileCenter (
-      centerPoint ::puzzleSize position::(toGameCoord lineEdgeTile.position)
+  let puzzleSize = List.length(puzzle.grid);
+  let GCoord({x: centerX, y: centerY}) =
+    getTileCenter(
+      centerPoint(~puzzleSize, ~position=toGameCoord(lineEdgeTile.position)),
     );
-  let minDist = ref (getDistance mousePos lineEdge);
-  let minCoord = ref lineEdge;
-  if possibleDirs.bottom {
+  let minDist = ref(getDistance(mousePos, lineEdge));
+  let minCoord = ref(lineEdge);
+  if (possibleDirs.bottom) {
     let potentialLineEdge =
-      GCoord {
+      GCoord({
         x: centerX,
-        y: min (max3 my centerY (centerY - 3 * lineWeight / 2)) (ley - 1)
-      };
-    let potentialDistance = getDistance potentialLineEdge mousePos;
-    if (potentialDistance < !minDist) {
+        y: min(max3(my, centerY, centerY - 3 * lineWeight / 2), ley - 1),
+      });
+    let potentialDistance = getDistance(potentialLineEdge, mousePos);
+    if (potentialDistance < minDist^) {
       minDist := potentialDistance;
-      minCoord := potentialLineEdge
-    }
+      minCoord := potentialLineEdge;
+    };
   };
-  if possibleDirs.left {
+  if (possibleDirs.left) {
     let potentialLineEdge =
-      GCoord {
-        x: min (max3 mx centerX (centerX - 3 * lineWeight / 2)) (lex - 1),
-        y: centerY
-      };
-    let potentialDistance = getDistance potentialLineEdge mousePos;
-    if (potentialDistance < !minDist) {
+      GCoord({
+        x: min(max3(mx, centerX, centerX - 3 * lineWeight / 2), lex - 1),
+        y: centerY,
+      });
+    let potentialDistance = getDistance(potentialLineEdge, mousePos);
+    if (potentialDistance < minDist^) {
       minDist := potentialDistance;
-      minCoord := potentialLineEdge
-    }
+      minCoord := potentialLineEdge;
+    };
   };
-  if possibleDirs.top {
+  if (possibleDirs.top) {
     let potentialLineEdge =
-      GCoord {
+      GCoord({
         x: centerX,
-        y: max (min3 my centerY (centerY + 3 * lineWeight / 2)) (ley + 1)
-      };
-    let potentialDistance = getDistance potentialLineEdge mousePos;
-    if (potentialDistance < !minDist) {
+        y: max(min3(my, centerY, centerY + 3 * lineWeight / 2), ley + 1),
+      });
+    let potentialDistance = getDistance(potentialLineEdge, mousePos);
+    if (potentialDistance < minDist^) {
       minDist := potentialDistance;
-      minCoord := potentialLineEdge
-    }
+      minCoord := potentialLineEdge;
+    };
   };
-  if possibleDirs.right {
+  if (possibleDirs.right) {
     let potentialLineEdge =
-      GCoord {
-        x: max (min3 mx centerX (centerX + 3 * lineWeight / 2)) (lex + 1),
-        y: centerY
-      };
-    let potentialDistance = getDistance potentialLineEdge mousePos;
-    if (potentialDistance < !minDist) {
+      GCoord({
+        x: max(min3(mx, centerX, centerX + 3 * lineWeight / 2), lex + 1),
+        y: centerY,
+      });
+    let potentialDistance = getDistance(potentialLineEdge, mousePos);
+    if (potentialDistance < minDist^) {
       minDist := potentialDistance;
-      minCoord := potentialLineEdge
-    }
+      minCoord := potentialLineEdge;
+    };
   };
-  let maybeNextTile = maybeToTilePoint ::puzzle position::!minCoord;
-  switch maybeNextTile {
+  let maybeNextTile = maybeToTilePoint(~puzzle, ~position=minCoord^);
+  switch (maybeNextTile) {
   | None => gameState
-  | Some nextTile =>
-    let getNextPath currentPath tile nextTile =>
-      switch currentPath {
+  | Some(nextTile) =>
+    let getNextPath = (currentPath, tile, nextTile) =>
+      switch (currentPath) {
       | [] => [
           {
             tile:
-              addSide curSide::B.n cur::tile.position other::nextTile.position,
-            position: tile.position
-          }
+              addSide(
+                ~curSide=B.n,
+                ~cur=tile.position,
+                ~other=nextTile.position,
+              ),
+            position: tile.position,
+          },
         ]
       | [head, ...tail] when head.position == nextTile.position => tail
       | [head, ...tail] =>
-        if (
-          List.length (
-            List.filter (fun x => x.position == nextTile.position) tail
-          ) == 0
-        ) {
+        if (List.length(
+              List.filter(x => x.position == nextTile.position, tail),
+            )
+            == 0) {
           [
             {
               tile:
-                addSide
-                  curSide::(
-                    addSide
-                      curSide::B.n cur::tile.position other::head.position
-                  )
-                  cur::tile.position
-                  other::nextTile.position,
-              position: tile.position
+                addSide(
+                  ~curSide=
+                    addSide(
+                      ~curSide=B.n,
+                      ~cur=tile.position,
+                      ~other=head.position,
+                    ),
+                  ~cur=tile.position,
+                  ~other=nextTile.position,
+                ),
+              position: tile.position,
             },
             head,
-            ...tail
-          ]
+            ...tail,
+          ];
         } else {
-          [head, ...tail]
+          [head, ...tail];
         }
       };
-
-    /** We check that you can't go on top of your current path. **/
     let nextLineEdge =
-      switch gameState.currentPath {
-      | [] => Some !minCoord
-      | [_] => Some !minCoord
+      switch (gameState.currentPath) {
+      | [] => Some(minCoord^)
+      | [_] => Some(minCoord^)
       | [_, ...tail] =>
-        if (
-          List.length (
-            List.filter (fun x => x.position == nextTile.position) tail
-          ) == 0
-        ) {
-          Some !minCoord
+        if (List.length(
+              List.filter(x => x.position == nextTile.position, tail),
+            )
+            == 0) {
+          Some(minCoord^);
         } else {
-          Some lineEdge
+          Some(lineEdge);
         }
       };
-
-    /** If we can't move we stop here and don't update currentPath. **/
     if (nextTile == lineEdgeTile) {
-      {...gameState, lineEdge: nextLineEdge}
+      {...gameState, lineEdge: nextLineEdge};
     } else {
       let nextGameState = {
-        currentPath: getNextPath gameState.currentPath lineEdgeTile nextTile,
-        lineEdge: nextLineEdge
+        currentPath:
+          getNextPath(gameState.currentPath, lineEdgeTile, nextTile),
+        lineEdge: nextLineEdge,
       };
-      switch (getTileSide ::puzzle tile::nextTile position::!minCoord) {
+      switch (getTileSide(~puzzle, ~tile=nextTile, ~position=minCoord^)) {
       | Bottom =>
-        if nextTile.tile.bottom {
-          nextGameState
+        if (nextTile.tile.bottom) {
+          nextGameState;
         } else {
-          gameState
+          gameState;
         }
       | Left =>
-        if nextTile.tile.left {
-          nextGameState
+        if (nextTile.tile.left) {
+          nextGameState;
         } else {
-          gameState
+          gameState;
         }
       | Top =>
-        if nextTile.tile.top {
-          nextGameState
+        if (nextTile.tile.top) {
+          nextGameState;
         } else {
-          gameState
+          gameState;
         }
       | Right =>
-        if nextTile.tile.right {
-          nextGameState
+        if (nextTile.tile.right) {
+          nextGameState;
         } else {
-          gameState
+          gameState;
         }
       | Center => assert false
-      }
-    }
-  }
+      };
+    };
+  };
 };
 
-
-/** Drawing functions... Draw cell draws one of the cells of the grid of the maze. **/
-let drawCell tile::{bottom, left, top, right} ::color position::(GCoord {x, y}) => {
-  let numOfSides = ref 0;
-  if bottom {
-    myDrawRect
-      width::lineWeight
-      height::(2 * lineWeight - lineWeight / 2)
-      ::color
-      position::(GCoord {x: x + lineWeight, y});
-    numOfSides := !numOfSides + 1
-  };
-  if left {
-    myDrawRect
-      width::(2 * lineWeight - lineWeight / 2)
-      height::lineWeight
-      ::color
-      position::(GCoord {x, y: y + lineWeight});
-    numOfSides := !numOfSides + 1
-  };
-  if top {
-    myDrawRect
-      width::lineWeight
-      height::(2 * lineWeight - lineWeight / 2)
-      ::color
-      position::(
-        GCoord {x: x + lineWeight, y: y + lineWeight + lineWeight / 2}
-      );
-    numOfSides := !numOfSides + 1
-  };
-  if right {
-    myDrawRect
-      width::(2 * lineWeight - lineWeight / 2)
-      height::lineWeight
-      ::color
-      position::(
-        GCoord {x: x + lineWeight + lineWeight / 2, y: y + lineWeight}
-      );
-    numOfSides := !numOfSides + 1
-  };
-  if (!numOfSides >= 2) {
-    myDrawCircle
-      radius::(lineWeight / 2)
-      ::color
-      position::(getTileCenter (GCoord {x, y}))
-  } else {
-    let GCoord tileCenter = getTileCenter (GCoord {x, y});
-    myDrawRect
-      width::lineWeight
-      height::lineWeight
-      ::color
-      position::(
-        GCoord {
-          x: tileCenter.x - lineWeight / 2,
-          y: tileCenter.y - lineWeight / 2
-        }
-      )
-  }
-};
-
-
-/** This is the main loop that draws every cell. **/
-let drawPuzzle ::puzzle => {
-  let puzzleSize = List.length puzzle.grid;
-  List.iteri
+let drawCell =
     (
-      fun y row =>
-        List.iteri
-          (
-            fun x tile =>
-              drawCell
-                ::tile
-                color::Color.brown
-                position::(
-                  centerPoint
-                    ::puzzleSize position::(toGameCoord (PCoord {x, y}))
-                )
-          )
-          row
-    )
-    (List.rev puzzle.grid);
-  myDrawCircle
-    radius::lineWeight
-    color::Color.brown
-    position::(
-      getTileCenter (
-        centerPoint ::puzzleSize position::(toGameCoord puzzle.startTile)
-      )
-    )
+      ~tile as {bottom, left, top, right},
+      ~color,
+      ~position as GCoord({x, y}),
+    ) => {
+  let numOfSides = ref(0);
+  if (bottom) {
+    myDrawRect(
+      ~width=lineWeight,
+      ~height=2 * lineWeight - lineWeight / 2,
+      ~color,
+      ~position=GCoord({x: x + lineWeight, y}),
+    );
+    numOfSides := numOfSides^ + 1;
+  };
+  if (left) {
+    myDrawRect(
+      ~width=2 * lineWeight - lineWeight / 2,
+      ~height=lineWeight,
+      ~color,
+      ~position=GCoord({x, y: y + lineWeight}),
+    );
+    numOfSides := numOfSides^ + 1;
+  };
+  if (top) {
+    myDrawRect(
+      ~width=lineWeight,
+      ~height=2 * lineWeight - lineWeight / 2,
+      ~color,
+      ~position=
+        GCoord({x: x + lineWeight, y: y + lineWeight + lineWeight / 2}),
+    );
+    numOfSides := numOfSides^ + 1;
+  };
+  if (right) {
+    myDrawRect(
+      ~width=2 * lineWeight - lineWeight / 2,
+      ~height=lineWeight,
+      ~color,
+      ~position=
+        GCoord({x: x + lineWeight + lineWeight / 2, y: y + lineWeight}),
+    );
+    numOfSides := numOfSides^ + 1;
+  };
+  if (numOfSides^ >= 2) {
+    myDrawCircle(
+      ~radius=lineWeight / 2,
+      ~color,
+      ~position=getTileCenter(GCoord({x, y})),
+    );
+  } else {
+    let GCoord(tileCenter) = getTileCenter(GCoord({x, y}));
+    myDrawRect(
+      ~width=lineWeight,
+      ~height=lineWeight,
+      ~color,
+      ~position=
+        GCoord({
+          x: tileCenter.x - lineWeight / 2,
+          y: tileCenter.y - lineWeight / 2,
+        }),
+    );
+  };
 };
 
+let drawPuzzle = (~puzzle) => {
+  let puzzleSize = List.length(puzzle.grid);
+  List.iteri(
+    (y, row) =>
+      List.iteri(
+        (x, tile) =>
+          drawCell(
+            ~tile,
+            ~color=Color.brown,
+            ~position=
+              centerPoint(
+                ~puzzleSize,
+                ~position=toGameCoord(PCoord({x, y})),
+              ),
+          ),
+        row,
+      ),
+    List.rev(puzzle.grid),
+  );
+  myDrawCircle(
+    ~radius=lineWeight,
+    ~color=Color.brown,
+    ~position=
+      getTileCenter(
+        centerPoint(~puzzleSize, ~position=toGameCoord(puzzle.startTile)),
+      ),
+  );
+};
 
-/** Draw the tip of the line if any. Just the tip. **/
-let drawTip
-    ::puzzle
-    prevTile::maybePrevTile
-    ::curTile
-    lineEdge::(GCoord lineEdge) => {
-  let puzzleSize = List.length puzzle.grid;
+let drawTip =
+    (
+      ~puzzle,
+      ~prevTile as maybePrevTile,
+      ~curTile,
+      ~lineEdge as GCoord(lineEdge),
+    ) => {
+  let puzzleSize = List.length(puzzle.grid);
   let lineEdgeTileSide =
-    getTileSide ::puzzle tile::curTile position::(GCoord lineEdge);
-  let GCoord tileCenter =
-    getTileCenter (
-      centerPoint ::puzzleSize position::(toGameCoord curTile.position)
+    getTileSide(~puzzle, ~tile=curTile, ~position=GCoord(lineEdge));
+  let GCoord(tileCenter) =
+    getTileCenter(
+      centerPoint(~puzzleSize, ~position=toGameCoord(curTile.position)),
     );
-  let drawSomething () =>
-    switch lineEdgeTileSide {
+  let drawSomething = () =>
+    switch (lineEdgeTileSide) {
     | Bottom =>
-      myDrawRect
-        width::lineWeight
-        height::(tileCenter.y - lineEdge.y)
-        color::Color.brightYellow
-        position::(GCoord {x: tileCenter.x - lineWeight / 2, y: lineEdge.y})
+      myDrawRect(
+        ~width=lineWeight,
+        ~height=tileCenter.y - lineEdge.y,
+        ~color=Color.brightYellow,
+        ~position=GCoord({x: tileCenter.x - lineWeight / 2, y: lineEdge.y}),
+      )
     | Left =>
-      myDrawRect
-        width::(tileCenter.x - lineEdge.x)
-        height::lineWeight
-        color::Color.brightYellow
-        position::(GCoord {x: lineEdge.x, y: tileCenter.y - lineWeight / 2})
+      myDrawRect(
+        ~width=tileCenter.x - lineEdge.x,
+        ~height=lineWeight,
+        ~color=Color.brightYellow,
+        ~position=GCoord({x: lineEdge.x, y: tileCenter.y - lineWeight / 2}),
+      )
     | Top =>
-      myDrawRect
-        width::lineWeight
-        height::(lineEdge.y - tileCenter.y)
-        color::Color.brightYellow
-        position::(GCoord {x: tileCenter.x - lineWeight / 2, y: tileCenter.y})
+      myDrawRect(
+        ~width=lineWeight,
+        ~height=lineEdge.y - tileCenter.y,
+        ~color=Color.brightYellow,
+        ~position=GCoord({x: tileCenter.x - lineWeight / 2, y: tileCenter.y}),
+      )
     | Right =>
-      myDrawRect
-        width::(lineEdge.x - tileCenter.x)
-        height::lineWeight
-        color::Color.brightYellow
-        position::(GCoord {x: tileCenter.x, y: tileCenter.y - lineWeight / 2})
+      myDrawRect(
+        ~width=lineEdge.x - tileCenter.x,
+        ~height=lineWeight,
+        ~color=Color.brightYellow,
+        ~position=GCoord({x: tileCenter.x, y: tileCenter.y - lineWeight / 2}),
+      )
     | Center => ()
     };
-  switch maybePrevTile {
-  | None => drawSomething ()
-  | Some prevTile =>
+  switch (maybePrevTile) {
+  | None => drawSomething()
+  | Some(prevTile) =>
     let prevTileSide =
-      getTileSide
-        ::puzzle
-        tile::curTile
-        position::(
-          getTileCenter (
-            centerPoint ::puzzleSize position::(toGameCoord prevTile.position)
-          )
-        );
+      getTileSide(
+        ~puzzle,
+        ~tile=curTile,
+        ~position=
+          getTileCenter(
+            centerPoint(
+              ~puzzleSize,
+              ~position=toGameCoord(prevTile.position),
+            ),
+          ),
+      );
     let distanceFromEdge = 3 * lineWeight / 2;
-    switch prevTileSide {
+    switch (prevTileSide) {
     | Top =>
-      myDrawRect
-        width::lineWeight
-        height::(tileCenter.y + distanceFromEdge - lineEdge.y)
-        color::Color.brightYellow
-        position::(GCoord {x: tileCenter.x - lineWeight / 2, y: lineEdge.y})
+      myDrawRect(
+        ~width=lineWeight,
+        ~height=tileCenter.y + distanceFromEdge - lineEdge.y,
+        ~color=Color.brightYellow,
+        ~position=GCoord({x: tileCenter.x - lineWeight / 2, y: lineEdge.y}),
+      )
     | Right =>
-      myDrawRect
-        width::(tileCenter.x + distanceFromEdge - lineEdge.x)
-        height::lineWeight
-        color::Color.brightYellow
-        position::(GCoord {x: lineEdge.x, y: tileCenter.y - lineWeight / 2})
+      myDrawRect(
+        ~width=tileCenter.x + distanceFromEdge - lineEdge.x,
+        ~height=lineWeight,
+        ~color=Color.brightYellow,
+        ~position=GCoord({x: lineEdge.x, y: tileCenter.y - lineWeight / 2}),
+      )
     | Bottom =>
-      myDrawRect
-        width::lineWeight
-        height::(lineEdge.y - (tileCenter.y - distanceFromEdge))
-        color::Color.brightYellow
-        position::(
-          GCoord {
+      myDrawRect(
+        ~width=lineWeight,
+        ~height=lineEdge.y - (tileCenter.y - distanceFromEdge),
+        ~color=Color.brightYellow,
+        ~position=
+          GCoord({
             x: tileCenter.x - lineWeight / 2,
-            y: tileCenter.y - distanceFromEdge
-          }
-        )
+            y: tileCenter.y - distanceFromEdge,
+          }),
+      )
     | Left =>
-      myDrawRect
-        width::(lineEdge.x - (tileCenter.x - distanceFromEdge))
-        height::lineWeight
-        color::Color.brightYellow
-        position::(
-          GCoord {
+      myDrawRect(
+        ~width=lineEdge.x - (tileCenter.x - distanceFromEdge),
+        ~height=lineWeight,
+        ~color=Color.brightYellow,
+        ~position=
+          GCoord({
             x: tileCenter.x - distanceFromEdge,
-            y: tileCenter.y - lineWeight / 2
-          }
-        )
+            y: tileCenter.y - lineWeight / 2,
+          }),
+      )
     | Center => assert false
     };
-    /* This means we're moving away from the center */
     if (prevTileSide != lineEdgeTileSide) {
-      drawSomething ();
-      myDrawCircle
-        radius::(lineWeight / 2)
-        color::Color.brightYellow
-        position::(GCoord tileCenter)
-    }
-  }
+      drawSomething();
+      myDrawCircle(
+        ~radius=lineWeight / 2,
+        ~color=Color.brightYellow,
+        ~position=GCoord(tileCenter),
+      );
+    };
+  };
 };
 
-
-/** Event handlers for click and move. **/
-let didClickOnStartTile ::puzzle ::mousePos => {
-  let puzzleSize = List.length puzzle.grid;
+let didClickOnStartTile = (~puzzle, ~mousePos) => {
+  let puzzleSize = List.length(puzzle.grid);
   let circleCenter =
-    getTileCenter (
-      centerPoint ::puzzleSize position::(toGameCoord puzzle.startTile)
+    getTileCenter(
+      centerPoint(~puzzleSize, ~position=toGameCoord(puzzle.startTile)),
     );
-  let distance = getDistance circleCenter mousePos;
-  distance <= lineWeightf
+  let distance = getDistance(circleCenter, mousePos);
+  distance <= lineWeightf;
 };
 
-let onMouseDown ::puzzle ::gameState ::button ::state ::x ::y => {
-  let mousePos = GCoord {x, y: windowSize - y};
-  let puzzleSize = List.length puzzle.grid;
-  switch button {
+let onMouseDown = (~puzzle, ~gameState, ~button, ~state, ~x, ~y) => {
+  let mousePos = GCoord({x, y: windowSize - y});
+  let puzzleSize = List.length(puzzle.grid);
+  switch (button) {
   | Gl.Events.LeftButton =>
     if (state == Gl.Events.MouseDown) {
-      switch gameState.lineEdge {
-      | None when didClickOnStartTile ::puzzle ::mousePos =>
+      switch (gameState.lineEdge) {
+      | None when didClickOnStartTile(~puzzle, ~mousePos) =>
         gameState.lineEdge =
-          Some (
-            getTileCenter (
-              centerPoint ::puzzleSize position::(toGameCoord puzzle.startTile)
-            )
+          Some(
+            getTileCenter(
+              centerPoint(
+                ~puzzleSize,
+                ~position=toGameCoord(puzzle.startTile),
+              ),
+            ),
           )
-      | Some lineEdge =>
+      | Some(lineEdge) =>
         let lineEdgeTile =
-          switch (maybeToTilePoint ::puzzle position::lineEdge) {
+          switch (maybeToTilePoint(~puzzle, ~position=lineEdge)) {
           | None => assert false
-          | Some x => x
+          | Some(x) => x
           };
         let lineTileSide =
-          getTileSide ::puzzle tile::lineEdgeTile position::lineEdge;
+          getTileSide(~puzzle, ~tile=lineEdgeTile, ~position=lineEdge);
         let endTileCenter =
-          getTileCenter (
-            centerPoint
-              ::puzzleSize position::(toGameCoord puzzle.endTile.position)
+          getTileCenter(
+            centerPoint(
+              ~puzzleSize,
+              ~position=toGameCoord(puzzle.endTile.position),
+            ),
           );
-        if (
-          lineEdgeTile.position == puzzle.endTile.position &&
-          lineTileSide == puzzle.endTile.tileSide && (
-            getDistance lineEdge endTileCenter >= lineWeightf ||
-            lineTileSide == Center
-          )
-        ) {
+        if (lineEdgeTile.position == puzzle.endTile.position
+            && lineTileSide == puzzle.endTile.tileSide
+            && (
+              getDistance(lineEdge, endTileCenter) >= lineWeightf
+              || lineTileSide == Center
+            )) {
           print_endline @@ "You won!";
           gameState.lineEdge = None;
           gameState.currentPath = [];
-          failwith "Killing app."
+          failwith("Killing app.");
         } else {
           gameState.lineEdge = None;
-          gameState.currentPath = []
-        }
+          gameState.currentPath = [];
+        };
       | _ => ()
-      }
+      };
     }
   | _ => ()
-  }
+  };
 };
 
-
-/**
- * Computes the line drawn when the mouse is moved and mutates the gameState.
- * We call `getOptimalLineEdge` in a loop, about... 10 times.
- */
-let onMouseMove ::puzzle ::gameState ::x ::y => {
-  let mousePos = GCoord {x, y: windowSize - y};
-  let rec loop i =>
-    switch gameState.lineEdge {
+let onMouseMove = (~puzzle, ~gameState, ~x, ~y) => {
+  let mousePos = GCoord({x, y: windowSize - y});
+  let rec loop = i =>
+    switch (gameState.lineEdge) {
     | None => ()
-    | Some lineEdge =>
-      switch (maybeToTilePoint ::puzzle position::lineEdge) {
+    | Some(lineEdge) =>
+      switch (maybeToTilePoint(~puzzle, ~position=lineEdge)) {
       | None => assert false
-      | Some tilePoint =>
+      | Some(tilePoint) =>
         let nextGameState =
-          switch (getTileSide ::puzzle tile::tilePoint position::lineEdge) {
+          switch (getTileSide(~puzzle, ~tile=tilePoint, ~position=lineEdge)) {
           | Bottom
           | Top =>
-            getOptimalLineEdge
-              ::puzzle ::gameState possibleDirs::B.bt ::lineEdge ::mousePos
+            getOptimalLineEdge(
+              ~puzzle,
+              ~gameState,
+              ~possibleDirs=B.bt,
+              ~lineEdge,
+              ~mousePos,
+            )
           | Left
           | Right =>
-            getOptimalLineEdge
-              ::puzzle ::gameState possibleDirs::B.lr ::lineEdge ::mousePos
+            getOptimalLineEdge(
+              ~puzzle,
+              ~gameState,
+              ~possibleDirs=B.lr,
+              ~lineEdge,
+              ~mousePos,
+            )
           | Center =>
-            getOptimalLineEdge
-              ::puzzle
-              ::gameState
-              possibleDirs::tilePoint.tile
-              ::lineEdge
-              ::mousePos
+            getOptimalLineEdge(
+              ~puzzle,
+              ~gameState,
+              ~possibleDirs=tilePoint.tile,
+              ~lineEdge,
+              ~mousePos,
+            )
           };
         if (nextGameState != gameState) {
           gameState.currentPath = nextGameState.currentPath;
           gameState.lineEdge = nextGameState.lineEdge;
           if (i > 0) {
-            loop (i - 1)
-          }
-        }
+            loop(i - 1);
+          };
+        };
       }
     };
-  loop 10
+  loop(10);
 };
 
-
-/**
- * Main render function.
- */
-let render ::puzzle ::gameState _ => {
-  Gl.clear
-    context::env.gl
-    mask::(Constants.color_buffer_bit lor Constants.depth_buffer_bit);
-  myDrawRect
-    width::windowSize
-    height::windowSize
-    color::Color.grey
-    position::(GCoord {x: 0, y: 0});
-  myDrawRect
-    width::(windowSize - frameWidth * 2)
-    height::(windowSize - frameWidth * 2)
-    color::Color.yellow
-    position::(GCoord {x: frameWidth, y: frameWidth});
-  drawPuzzle ::puzzle;
-  let puzzleSize = List.length puzzle.grid;
-  let GCoord endTileCenter =
-    getTileCenter (
-      centerPoint ::puzzleSize position::(toGameCoord puzzle.endTile.position)
+let render = (~puzzle, ~gameState, _) => {
+  Gl.clear(
+    ~context=env.gl,
+    ~mask=Constants.color_buffer_bit lor Constants.depth_buffer_bit,
+  );
+  myDrawRect(
+    ~width=windowSize,
+    ~height=windowSize,
+    ~color=Color.grey,
+    ~position=GCoord({x: 0, y: 0}),
+  );
+  myDrawRect(
+    ~width=windowSize - frameWidth * 2,
+    ~height=windowSize - frameWidth * 2,
+    ~color=Color.yellow,
+    ~position=GCoord({x: frameWidth, y: frameWidth}),
+  );
+  drawPuzzle(~puzzle);
+  let puzzleSize = List.length(puzzle.grid);
+  let GCoord(endTileCenter) =
+    getTileCenter(
+      centerPoint(
+        ~puzzleSize,
+        ~position=toGameCoord(puzzle.endTile.position),
+      ),
     );
-  switch puzzle.endTile {
+  switch (puzzle.endTile) {
   | {tileSide: Bottom} =>
-    myDrawCircle
-      radius::(lineWeight / 2)
-      color::Color.brown
-      position::(
-        GCoord {x: endTileCenter.x, y: endTileCenter.y - 3 * lineWeight / 2}
-      )
+    myDrawCircle(
+      ~radius=lineWeight / 2,
+      ~color=Color.brown,
+      ~position=
+        GCoord({x: endTileCenter.x, y: endTileCenter.y - 3 * lineWeight / 2}),
+    )
   | {tileSide: Left} =>
-    myDrawCircle
-      radius::(lineWeight / 2)
-      color::Color.brown
-      position::(
-        GCoord {x: endTileCenter.x - 3 * lineWeight / 2, y: endTileCenter.y}
-      )
+    myDrawCircle(
+      ~radius=lineWeight / 2,
+      ~color=Color.brown,
+      ~position=
+        GCoord({x: endTileCenter.x - 3 * lineWeight / 2, y: endTileCenter.y}),
+    )
   | {tileSide: Top} =>
-    myDrawCircle
-      radius::(lineWeight / 2)
-      color::Color.brown
-      position::(
-        GCoord {x: endTileCenter.x, y: endTileCenter.y + 3 * lineWeight / 2}
-      )
+    myDrawCircle(
+      ~radius=lineWeight / 2,
+      ~color=Color.brown,
+      ~position=
+        GCoord({x: endTileCenter.x, y: endTileCenter.y + 3 * lineWeight / 2}),
+    )
   | {tileSide: Right} =>
-    myDrawCircle
-      radius::(lineWeight / 2)
-      color::Color.brown
-      position::(
-        GCoord {x: endTileCenter.x + 3 * lineWeight / 2, y: endTileCenter.y}
-      )
+    myDrawCircle(
+      ~radius=lineWeight / 2,
+      ~color=Color.brown,
+      ~position=
+        GCoord({x: endTileCenter.x + 3 * lineWeight / 2, y: endTileCenter.y}),
+    )
   | {tileSide: Center} => ()
   };
-  switch gameState.lineEdge {
+  switch (gameState.lineEdge) {
   | None => ()
-  | Some lineEdge =>
-    myDrawCircle
-      radius::lineWeight
-      color::Color.brightYellow
-      position::(
-        getTileCenter (
-          centerPoint ::puzzleSize position::(toGameCoord puzzle.startTile)
-        )
-      );
+  | Some(lineEdge) =>
+    myDrawCircle(
+      ~radius=lineWeight,
+      ~color=Color.brightYellow,
+      ~position=
+        getTileCenter(
+          centerPoint(~puzzleSize, ~position=toGameCoord(puzzle.startTile)),
+        ),
+    );
     ignore @@
-    List.map
-      (
-        fun tilePoint =>
-          drawCell
-            tile::tilePoint.tile
-            color::Color.brightYellow
-            position::(
-              centerPoint
-                ::puzzleSize position::(toGameCoord tilePoint.position)
-            )
-      )
-      gameState.currentPath;
-    switch (maybeToTilePoint ::puzzle position::lineEdge) {
+    List.map(
+      tilePoint =>
+        drawCell(
+          ~tile=tilePoint.tile,
+          ~color=Color.brightYellow,
+          ~position=
+            centerPoint(
+              ~puzzleSize,
+              ~position=toGameCoord(tilePoint.position),
+            ),
+        ),
+      gameState.currentPath,
+    );
+    switch (maybeToTilePoint(~puzzle, ~position=lineEdge)) {
     | None => assert false
-    | Some curTile =>
-      switch gameState.currentPath {
-      | [] => drawTip ::puzzle prevTile::None ::curTile ::lineEdge
+    | Some(curTile) =>
+      switch (gameState.currentPath) {
+      | [] => drawTip(~puzzle, ~prevTile=None, ~curTile, ~lineEdge)
       | [head, ..._] =>
-        drawTip ::puzzle prevTile::(Some head) ::curTile ::lineEdge
+        drawTip(~puzzle, ~prevTile=Some(head), ~curTile, ~lineEdge)
       }
     };
-    myDrawCircle
-      radius::(lineWeight / 2) color::Color.brightYellow position::lineEdge
-  }
+    myDrawCircle(
+      ~radius=lineWeight / 2,
+      ~color=Color.brightYellow,
+      ~position=lineEdge,
+    );
+  };
 };
 
 let gameState = {currentPath: [], lineEdge: None};
 
-
-/**
- * Main entry point to the Gl module.
- * This is what starts the rendering loop and the event loop.
- * In the native case they are both synchronous and synchronized. In the web case, they're both async.
- */
-Gl.render
-  ::window
-  mouseDown::(onMouseDown puzzle::examplePuzzle ::gameState)
-  mouseMove::(onMouseMove puzzle::examplePuzzle ::gameState)
-  displayFunc::(render puzzle::examplePuzzle ::gameState)
-  ();
+Gl.render(
+  ~window,
+  ~mouseDown=onMouseDown(~puzzle=examplePuzzle, ~gameState),
+  ~mouseMove=onMouseMove(~puzzle=examplePuzzle, ~gameState),
+  ~displayFunc=render(~puzzle=examplePuzzle, ~gameState),
+  (),
+);

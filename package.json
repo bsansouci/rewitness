@@ -15,7 +15,7 @@
     "Reasongl": "bsansouci/reasongl"
   },
   "devDependencies": {
-    "bs-platform": "bsansouci/bsb-native#2.1.1"
+    "bsb-native": "bsansouci/bucklescript#4.0.6"
   },
   "repository": {
     "type": "git",

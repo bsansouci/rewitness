@@ -4,12 +4,12 @@
   "sources": "src",
   "entries": [{
     "kind": "js",
-    "main": "Index" 
+    "main-module": "Index" 
   },{
     "kind": "bytecode",
-    "main": "Index" 
+    "main-module": "Index" 
   },{
     "kind": "native",
-    "main": "Index" 
+    "main-module": "Index" 
   }]
 }
