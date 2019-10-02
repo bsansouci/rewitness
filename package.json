@@ -8,11 +8,12 @@
     "build:native": "bsb -make-world -backend native",
     "clean": "bsb -clean-world",
     "start": "./lib/bs/bytecode/index.byte",
-    "start:js": "python -m SimpleHTTPServer 8000",
+    "start:js": "./node_modules/.bin/serve",
     "start:native": "./lib/bs/native/index.native"
   },
   "dependencies": {
-    "Reasongl": "bsansouci/reasongl"
+    "Reasongl": "github:bsansouci/reasongl#78995f20193557814bbe5fbdefeec270fd4da2bc",
+    "serve": "^11.2.0"
   },
   "devDependencies": {
     "bsb-native": "bsansouci/bucklescript#4.0.6"
@@ -21,5 +22,6 @@
     "type": "git",
     "url": "git+https://github.com/bsansouci/rewitness.git"
   },
-  "author": "bsansouci & schmavery"
+  "author": "bsansouci & schmavery",
+  "license": "UNLICENSED"
 }
