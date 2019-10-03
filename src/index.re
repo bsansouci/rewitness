@@ -27,7 +27,7 @@ let setProjection = (window: Gl.Window.t, camera: glCamera) =>
 let resetCamera = (camera: glCamera) =>
   Gl.Mat4.identity(~out=camera.modelViewMatrix);
 
-let buildGlEnv = (~window: Gl.Window.t) : glEnv => {
+let buildGlEnv = (~window: Gl.Window.t): glEnv => {
   let context = Gl.Window.getContext(window);
   let glCamera = {
     projectionMatrix: Gl.Mat4.create(),
@@ -595,7 +595,7 @@ let addSide = (~curSide as ret, ~cur as PCoord(cur), ~other as PCoord(other)) =>
   } else if (other.x > cur.x) {
     {...ret, right: true};
   } else {
-    assert false;
+    assert(false);
   };
 
 let min3 = (a, b, c) => min(a, min(b, c));
@@ -614,7 +614,7 @@ let getOptimalLineEdge =
   let lineEdge = GCoord({x: lex, y: ley});
   let lineEdgeTile =
     switch (maybeToTilePoint(~puzzle, ~position=lineEdge)) {
-    | None => assert false
+    | None => assert(false)
     | Some(x) => x
     };
   let puzzleSize = List.length(puzzle.grid);
@@ -764,7 +764,7 @@ let getOptimalLineEdge =
         } else {
           gameState;
         }
-      | Center => assert false
+      | Center => assert(false)
       };
     };
   };
@@ -964,7 +964,7 @@ let drawTip =
             y: tileCenter.y - lineWeight / 2,
           }),
       )
-    | Center => assert false
+    | Center => assert(false)
     };
     if (prevTileSide != lineEdgeTileSide) {
       drawSomething();
@@ -1007,7 +1007,7 @@ let onMouseDown = (~puzzle, ~gameState, ~button, ~state, ~x, ~y) => {
       | Some(lineEdge) =>
         let lineEdgeTile =
           switch (maybeToTilePoint(~puzzle, ~position=lineEdge)) {
-          | None => assert false
+          | None => assert(false)
           | Some(x) => x
           };
         let lineTileSide =
@@ -1047,7 +1047,7 @@ let onMouseMove = (~puzzle, ~gameState, ~x, ~y) => {
     | None => ()
     | Some(lineEdge) =>
       switch (maybeToTilePoint(~puzzle, ~position=lineEdge)) {
-      | None => assert false
+      | None => assert(false)
       | Some(tilePoint) =>
         let nextGameState =
           switch (getTileSide(~puzzle, ~tile=tilePoint, ~position=lineEdge)) {
@@ -1173,7 +1173,7 @@ let render = (~puzzle, ~gameState, _) => {
       gameState.currentPath,
     );
     switch (maybeToTilePoint(~puzzle, ~position=lineEdge)) {
-    | None => assert false
+    | None => assert(false)
     | Some(curTile) =>
       switch (gameState.currentPath) {
       | [] => drawTip(~puzzle, ~prevTile=None, ~curTile, ~lineEdge)

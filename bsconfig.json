@@ -2,14 +2,18 @@
   "name": "ReWitness",
   "bs-dependencies": ["Reasongl"],
   "sources": "src",
-  "entries": [{
-    "kind": "js",
-    "main-module": "Index" 
-  },{
-    "kind": "bytecode",
-    "main-module": "Index" 
-  },{
-    "kind": "native",
-    "main-module": "Index" 
-  }]
+  "entries": [
+    {
+      "backend": "js",
+      "main-module": "Index"
+    },
+    {
+      "backend": "bytecode",
+      "main-module": "Index"
+    },
+    {
+      "backend": "native",
+      "main-module": "Index"
+    }
+  ]
 }
